@@ -1,0 +1,6 @@
+bin/
+*.exe
+.env
+dist/
+tolvyn-server
+tolvyn
