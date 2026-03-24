@@ -18,11 +18,11 @@ var cmdInit = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		reader := bufio.NewReader(os.Stdin)
 
-		fmt.Printf("API URL [http://localhost:8081]: ")
+		fmt.Printf("API URL [https://api.tolvyn.io]: ")
 		apiURL, _ := reader.ReadString('\n')
 		apiURL = strings.TrimSpace(apiURL)
 		if apiURL == "" {
-			apiURL = "http://localhost:8081"
+			apiURL = "https://api.tolvyn.io"
 		}
 
 		fmt.Printf("Email: ")
