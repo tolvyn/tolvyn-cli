@@ -8,6 +8,7 @@ import (
 )
 
 const defaultAPIURL = "https://api.tolvyn.io"
+const cliVersion = "1.0.0"
 
 var (
 	flagJSON    bool
@@ -88,8 +89,18 @@ func main() {
 		cmdProviders,
 		cmdTeams,
 		cmdBudgets,
+		cmdModels,
 		cmdKill,
+		&cobra.Command{
+			Use:   "version",
+			Short: "Show CLI version",
+			Run: func(cmd *cobra.Command, args []string) {
+				fmt.Printf("tolvyn version %s\n", cliVersion)
+			},
+		},
 	)
+	rootCmd.Version = cliVersion
+	rootCmd.SetVersionTemplate("tolvyn version {{.Version}}\n")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error: "+err.Error())
