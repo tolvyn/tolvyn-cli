@@ -33,6 +33,7 @@ Commands:
   teams         Manage teams (list, create)
   budgets       Manage budgets (list, create)
   kill          Emergency spend kill switch
+  models        List pricing models
 
 Flags:
   --api-url string   Override API URL (default from config)
