@@ -1,19 +1,23 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
 var cmdBudgets = &cobra.Command{
 	Use:   "budgets",
-	Short: "Manage budgets (list, create)",
+	Short: "Manage budgets (list, create, delete)",
 }
 
 var cmdBudgetsList = &cobra.Command{
-	Use:   "list",
-	Short: "List budgets",
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List budgets",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if getToken() == "" {
 			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
@@ -81,8 +85,9 @@ var (
 )
 
 var cmdBudgetsCreate = &cobra.Command{
-	Use:   "create",
-	Short: "Create a budget",
+	Use:     "create",
+	Aliases: []string{"set"},
+	Short:   "Create a budget",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if getToken() == "" {
 			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
@@ -133,6 +138,37 @@ var cmdBudgetsCreate = &cobra.Command{
 	},
 }
 
+var cmdBudgetsDelete = &cobra.Command{
+	Use:     "delete <budget-id>",
+	Aliases: []string{"rm", "remove"},
+	Short:   "Delete a budget",
+	Args:    cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if getToken() == "" {
+			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
+		}
+		budgetID := args[0]
+
+		fmt.Printf("Delete budget %s? This will remove all spend tracking for this budget. [y/N]: ", budgetID)
+		reader := bufio.NewReader(os.Stdin)
+		answer, _ := reader.ReadString('\n')
+		answer = strings.TrimSpace(strings.ToLower(answer))
+		if answer != "y" && answer != "yes" {
+			fmt.Println("Cancelled.")
+			return nil
+		}
+
+		if err := doRequest("DELETE", "/v1/budgets/"+budgetID, nil, nil); err != nil {
+			if strings.HasPrefix(err.Error(), "not found") {
+				return fmt.Errorf("Budget not found.")
+			}
+			return err
+		}
+		fmt.Printf("Budget %s deleted.\n", budgetID)
+		return nil
+	},
+}
+
 func init() {
 	cmdBudgetsCreate.Flags().StringVar(&budgetScope, "scope", "org", "Scope: org, team, or service")
 	cmdBudgetsCreate.Flags().StringVar(&budgetTeam, "team", "", "Team name (if scope=team)")
@@ -141,5 +177,5 @@ func init() {
 	cmdBudgetsCreate.Flags().StringVar(&budgetPeriod, "period", "monthly", "Period: monthly, weekly, daily")
 	cmdBudgetsCreate.Flags().StringVar(&budgetMode, "mode", "soft", "Mode: soft or hard")
 
-	cmdBudgets.AddCommand(cmdBudgetsList, cmdBudgetsCreate)
+	cmdBudgets.AddCommand(cmdBudgetsList, cmdBudgetsCreate, cmdBudgetsDelete)
 }
