@@ -34,6 +34,7 @@ Commands:
   budgets       Manage budgets (list, create)
   kill          Emergency spend kill switch
   models        List pricing models
+  usage         Usage data commands (export CSV)
 
 Flags:
   --api-url string   Override API URL (default from config)
@@ -92,6 +93,8 @@ func main() {
 		cmdBudgets,
 		cmdModels,
 		cmdKill,
+		cmdUsage,
+		cmdReconcile,
 		&cobra.Command{
 			Use:   "version",
 			Short: "Show CLI version",

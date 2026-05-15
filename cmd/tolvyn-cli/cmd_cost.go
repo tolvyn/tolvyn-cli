@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -12,6 +13,7 @@ var (
 	costTo    string
 	costTeam  string
 	costModel string
+	costBy    string
 )
 
 var cmdCost = &cobra.Command{
@@ -20,6 +22,13 @@ var cmdCost = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if getToken() == "" {
 			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
+		}
+
+		if costBy == "user" {
+			return runCostByUser()
+		}
+		if costBy == "customer" {
+			return runCostByCustomer()
 		}
 
 		q := buildQueryParams(costFrom, costTo, costTeam, costModel)
@@ -146,6 +155,141 @@ func init() {
 	cmdCost.Flags().StringVar(&costTo, "to", "", "End date (YYYY-MM-DD)")
 	cmdCost.Flags().StringVar(&costTeam, "team", "", "Filter by team ID")
 	cmdCost.Flags().StringVar(&costModel, "model", "", "Filter by model")
+	cmdCost.Flags().StringVar(&costBy, "by", "", "Group by dimension: user, customer")
+}
+
+func runCostByCustomer() error {
+	q := buildQueryParams(costFrom, costTo, "", "")
+	path := "/v1/usage/by-end-customer" + q
+
+	if flagJSON {
+		raw, _, err := doRequestRaw("GET", path, nil)
+		if err != nil {
+			return err
+		}
+		printJSON(raw)
+		return nil
+	}
+
+	var resp struct {
+		Customers []struct {
+			Customer     string `json:"customer"`
+			RequestCount int64  `json:"request_count"`
+			TotalCostUSD string `json:"total_cost_usd"`
+			AvgCostUSD   string `json:"avg_cost_usd"`
+			TopModel     string `json:"top_model"`
+			LastSeen     string `json:"last_seen"`
+		} `json:"customers"`
+		TotalCostUSD string `json:"total_cost_usd"`
+	}
+	if err := doRequest("GET", path, nil, &resp); err != nil {
+		return err
+	}
+
+	if len(resp.Customers) == 0 {
+		fmt.Println("No end-customer data. Add X-Tolvyn-End-Customer headers to your API calls.")
+		return nil
+	}
+
+	fmt.Printf("%-30s  %-10s  %-12s  %-10s  %-20s  %s\n",
+		"Customer", "Requests", "Total Cost", "Avg Cost", "Top Model", "Last Active")
+	fmt.Println(strings.Repeat("─", 100))
+
+	limit := 20
+	for i, c := range resp.Customers {
+		if i >= limit {
+			break
+		}
+		lastActive := "—"
+		if c.LastSeen != "" {
+			lastActive = daysAgoLabel(c.LastSeen)
+		}
+		fmt.Printf("%-30s  %-10s  %-12s  %-10s  %-20s  %s\n",
+			c.Customer,
+			commaInt(c.RequestCount),
+			green(fmt.Sprintf("%-12s", c.TotalCostUSD)),
+			c.AvgCostUSD,
+			c.TopModel,
+			lastActive,
+		)
+	}
+
+	fmt.Println()
+	fmt.Printf("%-20s %s\n", "Total AI Spend:", green(resp.TotalCostUSD))
+	return nil
+}
+
+func daysAgoLabel(rfc3339 string) string {
+	t, err := time.Parse(time.RFC3339, rfc3339)
+	if err != nil {
+		return "—"
+	}
+	days := int(time.Since(t).Hours() / 24)
+	if days == 0 {
+		return "today"
+	}
+	return fmt.Sprintf("%dd ago", days)
+}
+
+func runCostByUser() error {
+	q := buildQueryParams(costFrom, costTo, "", "")
+	path := "/v1/usage/by-user" + q
+
+	if flagJSON {
+		raw, _, err := doRequestRaw("GET", path, nil)
+		if err != nil {
+			return err
+		}
+		printJSON(raw)
+		return nil
+	}
+
+	var resp struct {
+		Users []struct {
+			User         string  `json:"user"`
+			RequestCount int64   `json:"request_count"`
+			TotalCostUSD string  `json:"total_cost_usd"`
+			AvgCostUSD   string  `json:"avg_cost_usd"`
+			TopModel     string  `json:"top_model"`
+			RetryRatePct float64 `json:"retry_rate_pct"`
+		} `json:"users"`
+		PeriodStart string `json:"period_start"`
+		PeriodEnd   string `json:"period_end"`
+	}
+	if err := doRequest("GET", path, nil, &resp); err != nil {
+		return err
+	}
+
+	if len(resp.Users) == 0 {
+		fmt.Println("No user data. Add X-Tolvyn-User headers to your API calls.")
+		return nil
+	}
+
+	fmt.Printf("%-35s  %-10s  %-10s  %-10s  %-20s  %s\n",
+		"User", "Requests", "Spend", "Avg Cost", "Top Model", "Retry Rate")
+	fmt.Println(strings.Repeat("─", 100))
+
+	limit := 20
+	for i, u := range resp.Users {
+		if i >= limit {
+			break
+		}
+		retryColor := green
+		if u.RetryRatePct > 10 {
+			retryColor = red
+		} else if u.RetryRatePct >= 2 {
+			retryColor = yellow
+		}
+		fmt.Printf("%-35s  %-10s  %-10s  %-10s  %-20s  %s\n",
+			u.User,
+			commaInt(u.RequestCount),
+			green(fmt.Sprintf("%-10s", u.TotalCostUSD)),
+			u.AvgCostUSD,
+			u.TopModel,
+			retryColor(fmt.Sprintf("%.1f%%", u.RetryRatePct)),
+		)
+	}
+	return nil
 }
 
 func buildQueryParams(from, to, team, model string) string {

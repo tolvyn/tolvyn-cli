@@ -32,14 +32,15 @@ var cmdBudgetsList = &cobra.Command{
 		}
 
 		var budgets []struct {
-			ID             string  `json:"id"`
-			ScopeType      string  `json:"scope_type"`
-			ScopeID        *string `json:"scope_id"`
-			AmountUSD      string  `json:"amount_usd"`
-			CurrentSpendUSD string `json:"current_spend_usd"`
-			UtilizationPct float64 `json:"utilization_pct"`
-			Period         string  `json:"period"`
-			Mode           string  `json:"mode"`
+			ID              string  `json:"id"`
+			ScopeType       string  `json:"scope_type"`
+			ScopeID         *string `json:"scope_id"`
+			AgentName       *string `json:"agent_name"`
+			AmountUSD       string  `json:"amount_usd"`
+			CurrentSpendUSD string  `json:"current_spend_usd"`
+			UtilizationPct  float64 `json:"utilization_pct"`
+			Period          string  `json:"period"`
+			Mode            string  `json:"mode"`
 		}
 		if err := doRequest("GET", "/v1/budgets", nil, &budgets); err != nil {
 			return err
@@ -50,7 +51,9 @@ var cmdBudgetsList = &cobra.Command{
 
 		for _, b := range budgets {
 			scope := b.ScopeType
-			if b.ScopeID != nil && *b.ScopeID != "" {
+			if b.ScopeType == "agent" && b.AgentName != nil && *b.AgentName != "" {
+				scope = "agent (" + *b.AgentName + ")"
+			} else if b.ScopeID != nil && *b.ScopeID != "" {
 				scope += " (" + *b.ScopeID + ")"
 			}
 			if len(scope) > 22 {
@@ -79,6 +82,7 @@ var (
 	budgetScope   string
 	budgetTeam    string
 	budgetService string
+	budgetAgent   string
 	budgetAmount  float64
 	budgetPeriod  string
 	budgetMode    string
@@ -96,6 +100,10 @@ var cmdBudgetsCreate = &cobra.Command{
 			return fmt.Errorf("--amount is required and must be > 0")
 		}
 
+		if budgetScope == "agent" && budgetAgent == "" {
+			return fmt.Errorf("--agent is required when --scope is agent")
+		}
+
 		body := map[string]any{
 			"amount_usd": budgetAmount,
 			"period":     budgetPeriod,
@@ -108,6 +116,9 @@ var cmdBudgetsCreate = &cobra.Command{
 		case "service":
 			body["scope_type"] = "service"
 			body["scope_id"] = budgetService
+		case "agent":
+			body["scope_type"] = "agent"
+			body["agent_name"] = budgetAgent
 		default:
 			body["scope_type"] = "organization"
 		}
@@ -131,6 +142,8 @@ var cmdBudgetsCreate = &cobra.Command{
 			scopeLabel = "team " + budgetTeam
 		} else if budgetScope == "service" && budgetService != "" {
 			scopeLabel = "service " + budgetService
+		} else if budgetScope == "agent" && budgetAgent != "" {
+			scopeLabel = "agent " + budgetAgent
 		}
 		fmt.Printf("Budget created: $%.2f %s %s limit on %s\n",
 			budgetAmount, budgetPeriod, budgetMode, scopeLabel)
@@ -170,9 +183,10 @@ var cmdBudgetsDelete = &cobra.Command{
 }
 
 func init() {
-	cmdBudgetsCreate.Flags().StringVar(&budgetScope, "scope", "org", "Scope: org, team, or service")
+	cmdBudgetsCreate.Flags().StringVar(&budgetScope, "scope", "org", "Scope: org, team, service, or agent")
 	cmdBudgetsCreate.Flags().StringVar(&budgetTeam, "team", "", "Team name (if scope=team)")
 	cmdBudgetsCreate.Flags().StringVar(&budgetService, "service", "", "Service name (if scope=service)")
+	cmdBudgetsCreate.Flags().StringVar(&budgetAgent, "agent", "", "Agent name (if scope=agent); must match X-Tolvyn-Agent header")
 	cmdBudgetsCreate.Flags().Float64Var(&budgetAmount, "amount", 0, "Budget limit in USD (required)")
 	cmdBudgetsCreate.Flags().StringVar(&budgetPeriod, "period", "monthly", "Period: monthly, weekly, daily")
 	cmdBudgetsCreate.Flags().StringVar(&budgetMode, "mode", "soft", "Mode: soft or hard")
