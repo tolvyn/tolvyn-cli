@@ -30,6 +30,10 @@ var cmdCost = &cobra.Command{
 		if costBy == "customer" {
 			return runCostByCustomer()
 		}
+		if costBy == "agent" {
+			fmt.Println("Agent breakdown coming in v1.4. Use tolvyn tail --agent <name> to filter live requests.")
+			return nil
+		}
 
 		q := buildQueryParams(costFrom, costTo, costTeam, costModel)
 		path := "/v1/usage/summary" + q
@@ -155,7 +159,7 @@ func init() {
 	cmdCost.Flags().StringVar(&costTo, "to", "", "End date (YYYY-MM-DD)")
 	cmdCost.Flags().StringVar(&costTeam, "team", "", "Filter by team ID")
 	cmdCost.Flags().StringVar(&costModel, "model", "", "Filter by model")
-	cmdCost.Flags().StringVar(&costBy, "by", "", "Group by dimension: user, customer")
+	cmdCost.Flags().StringVar(&costBy, "by", "", "Group by dimension: user, customer, agent")
 }
 
 func runCostByCustomer() error {

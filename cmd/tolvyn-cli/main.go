@@ -35,6 +35,7 @@ Commands:
   kill          Emergency spend kill switch
   models        List pricing models
   usage         Usage data commands (export CSV)
+  audit         View and export audit log
 
 Flags:
   --api-url string   Override API URL (default from config)
@@ -95,6 +96,7 @@ func main() {
 		cmdKill,
 		cmdUsage,
 		cmdReconcile,
+		cmdAudit,
 		&cobra.Command{
 			Use:   "version",
 			Short: "Show CLI version",

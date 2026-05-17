@@ -4,5 +4,5 @@ bin/
 dist/
 tolvyn-server
 tolvyn
-tolvyn-cli
-tolvyn-cli-*
+/tolvyn-cli
+/tolvyn-cli-*
