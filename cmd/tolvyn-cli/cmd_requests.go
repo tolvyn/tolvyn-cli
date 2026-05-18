@@ -108,10 +108,38 @@ var cmdRequests = &cobra.Command{
 	},
 }
 
+var cmdRequestsShow = &cobra.Command{
+	Use:   "show <id>",
+	Short: "Show full detail for a single request (cost, headers, ledger linkage)",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if getToken() == "" {
+			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
+		}
+		id := args[0]
+		path := "/v1/usage/requests/" + id
+
+		raw, status, err := doRequestRaw("GET", path, nil)
+		if err != nil {
+			return err
+		}
+		if status != 200 {
+			return fmt.Errorf("server returned %d: %s", status, raw)
+		}
+		// Always print as JSON — the detail blob has many fields and varies
+		// per provider; structured output is more useful than a hand-rolled
+		// table.
+		printJSON(raw)
+		return nil
+	},
+}
+
 func init() {
 	cmdRequests.Flags().StringVar(&reqTeam, "team", "", "Filter by team ID")
 	cmdRequests.Flags().StringVar(&reqModel, "model", "", "Filter by model")
 	cmdRequests.Flags().IntVar(&reqLimit, "limit", 20, "Number of rows (max 100)")
 	cmdRequests.Flags().StringVar(&reqFrom, "from", "", "Start date (YYYY-MM-DD)")
 	cmdRequests.Flags().StringVar(&reqTo, "to", "", "End date (YYYY-MM-DD)")
+
+	cmdRequests.AddCommand(cmdRequestsShow)
 }

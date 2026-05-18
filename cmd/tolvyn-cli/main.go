@@ -29,13 +29,18 @@ Commands:
   cost          Show spend summary
   requests      Show request history
   keys          Manage API keys (list, create, revoke)
-  providers     Manage provider API keys (list, add)
+  providers     Manage provider API keys (list, add, delete)
   teams         Manage teams (list, create)
-  budgets       Manage budgets (list, create)
+  budgets       Manage budgets (list, create, delete)
   kill          Emergency spend kill switch
-  models        List pricing models
+  models        List pricing models and changes
   usage         Usage data commands (export CSV)
   audit         View and export audit log
+  ledger        View, verify, and export the immutable cost ledger
+  webhooks      Manage webhook endpoints
+  alerts        Manage alerts (list, acknowledge, test)
+  savings       View and dismiss savings findings
+  reconcile     Reconcile provider invoices against tolvyn data
 
 Flags:
   --api-url string   Override API URL (default from config)
@@ -97,6 +102,10 @@ func main() {
 		cmdUsage,
 		cmdReconcile,
 		cmdAudit,
+		cmdLedger,
+		cmdWebhooks,
+		cmdAlerts,
+		cmdSavings,
 		&cobra.Command{
 			Use:   "version",
 			Short: "Show CLI version",

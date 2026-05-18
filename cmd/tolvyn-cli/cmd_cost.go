@@ -24,13 +24,18 @@ var cmdCost = &cobra.Command{
 			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
 		}
 
-		if costBy == "user" {
+		switch costBy {
+		case "user":
 			return runCostByUser()
-		}
-		if costBy == "customer" {
+		case "customer":
 			return runCostByCustomer()
-		}
-		if costBy == "agent" {
+		case "model":
+			return runCostByModel()
+		case "team":
+			return runCostByTeam()
+		case "service":
+			return runCostByService()
+		case "agent":
 			fmt.Println("Per-agent cost breakdown is coming in v1.4.")
 			fmt.Println("To see agent activity now: tolvyn requests --json | grep agent_name")
 			fmt.Println("Or use tolvyn tail to watch live requests filtered by service.")
@@ -161,7 +166,103 @@ func init() {
 	cmdCost.Flags().StringVar(&costTo, "to", "", "End date (YYYY-MM-DD)")
 	cmdCost.Flags().StringVar(&costTeam, "team", "", "Filter by team ID")
 	cmdCost.Flags().StringVar(&costModel, "model", "", "Filter by model")
-	cmdCost.Flags().StringVar(&costBy, "by", "", "Group by dimension: user, customer, agent")
+	cmdCost.Flags().StringVar(&costBy, "by", "", "Group by dimension: model, team, service, user, customer, agent")
+}
+
+// runCostByModel calls GET /v1/usage/by-model and prints a per-model table.
+func runCostByModel() error {
+	q := buildQueryParams(costFrom, costTo, "", "")
+	path := "/v1/usage/by-model" + q
+	if flagJSON {
+		raw, _, err := doRequestRaw("GET", path, nil)
+		if err != nil {
+			return err
+		}
+		printJSON(raw)
+		return nil
+	}
+	var rows []struct {
+		ModelID  string `json:"model_id"`
+		Requests int64  `json:"requests"`
+		CostUSD  string `json:"cost_usd"`
+	}
+	if err := doRequest("GET", path, nil, &rows); err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		fmt.Println("No data.")
+		return nil
+	}
+	fmt.Printf("%-30s  %-12s  %-12s\n", cyan("MODEL"), cyan("REQUESTS"), cyan("COST"))
+	for _, r := range rows {
+		fmt.Printf("%-30s  %-12s  %s\n",
+			truncate(r.ModelID, 30), commaInt(r.Requests), green(r.CostUSD))
+	}
+	return nil
+}
+
+// runCostByTeam calls GET /v1/usage/by-team.
+func runCostByTeam() error {
+	q := buildQueryParams(costFrom, costTo, "", "")
+	path := "/v1/usage/by-team" + q
+	if flagJSON {
+		raw, _, err := doRequestRaw("GET", path, nil)
+		if err != nil {
+			return err
+		}
+		printJSON(raw)
+		return nil
+	}
+	var rows []struct {
+		TeamID   string `json:"team_id"`
+		Requests int64  `json:"requests"`
+		CostUSD  string `json:"cost_usd"`
+	}
+	if err := doRequest("GET", path, nil, &rows); err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		fmt.Println("No data.")
+		return nil
+	}
+	fmt.Printf("%-38s  %-12s  %-12s\n", cyan("TEAM"), cyan("REQUESTS"), cyan("COST"))
+	for _, r := range rows {
+		fmt.Printf("%-38s  %-12s  %s\n",
+			r.TeamID, commaInt(r.Requests), green(r.CostUSD))
+	}
+	return nil
+}
+
+// runCostByService calls GET /v1/usage/by-service.
+func runCostByService() error {
+	q := buildQueryParams(costFrom, costTo, "", "")
+	path := "/v1/usage/by-service" + q
+	if flagJSON {
+		raw, _, err := doRequestRaw("GET", path, nil)
+		if err != nil {
+			return err
+		}
+		printJSON(raw)
+		return nil
+	}
+	var rows []struct {
+		ServiceName string `json:"service_name"`
+		Requests    int64  `json:"requests"`
+		CostUSD     string `json:"cost_usd"`
+	}
+	if err := doRequest("GET", path, nil, &rows); err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		fmt.Println("No data.")
+		return nil
+	}
+	fmt.Printf("%-30s  %-12s  %-12s\n", cyan("SERVICE"), cyan("REQUESTS"), cyan("COST"))
+	for _, r := range rows {
+		fmt.Printf("%-30s  %-12s  %s\n",
+			truncate(r.ServiceName, 30), commaInt(r.Requests), green(r.CostUSD))
+	}
+	return nil
 }
 
 func runCostByCustomer() error {

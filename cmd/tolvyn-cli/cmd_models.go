@@ -171,10 +171,68 @@ var cmdModelsDiff = &cobra.Command{
 	},
 }
 
+var cmdModelsChanges = &cobra.Command{
+	Use:   "changes",
+	Short: "Show currently active pricing-change notifications for models you use",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if getToken() == "" {
+			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
+		}
+
+		if flagJSON {
+			raw, _, err := doRequestRaw("GET", "/v1/models/changes", nil)
+			if err != nil {
+				return err
+			}
+			printJSON(raw)
+			return nil
+		}
+
+		var changes []struct {
+			ModelID       string    `json:"model_id"`
+			Provider      string    `json:"provider"`
+			FieldChanged  string    `json:"field_changed"`
+			PreviousValue *string   `json:"previous_value"`
+			NewValue      *string   `json:"new_value"`
+			PercentChange *string   `json:"percent_change"`
+			EffectiveDate time.Time `json:"effective_date"`
+		}
+		if err := doRequest("GET", "/v1/models/changes", nil, &changes); err != nil {
+			return err
+		}
+
+		if len(changes) == 0 {
+			fmt.Println("No active pricing changes for models you use.")
+			return nil
+		}
+
+		fmt.Printf("%-22s  %-10s  %-9s  %-12s  %-12s  %-9s  %s\n",
+			cyan("MODEL"), cyan("PROVIDER"), cyan("FIELD"), cyan("BEFORE"), cyan("AFTER"), cyan("CHANGE%"), cyan("EFFECTIVE"))
+		for _, c := range changes {
+			prev := "—"
+			if c.PreviousValue != nil {
+				prev = "$" + *c.PreviousValue
+			}
+			next := "—"
+			if c.NewValue != nil {
+				next = "$" + *c.NewValue
+			}
+			pct := "—"
+			if c.PercentChange != nil {
+				pct = *c.PercentChange + "%"
+			}
+			fmt.Printf("%-22s  %-10s  %-9s  %-12s  %-12s  %-9s  %s\n",
+				truncate(c.ModelID, 22), c.Provider, c.FieldChanged,
+				prev, next, pct, c.EffectiveDate.Format("2006-01-02"))
+		}
+		return nil
+	},
+}
+
 func init() {
 	cmdModels.Flags().StringVar(&modelsProvider, "provider", "", "Filter by provider (openai, anthropic, google)")
 
 	cmdModelsDiff.Flags().StringVar(&modelsDiffLast, "last", "30d", "Show changes in last N days (e.g. 7d, 30d, 90d)")
 	cmdModelsDiff.Flags().StringVar(&modelsDiffProvider, "provider", "", "Filter by provider (openai, anthropic, google)")
-	cmdModels.AddCommand(cmdModelsDiff)
+	cmdModels.AddCommand(cmdModelsDiff, cmdModelsChanges)
 }

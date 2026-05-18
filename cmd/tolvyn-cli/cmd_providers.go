@@ -103,6 +103,31 @@ var cmdProvidersAdd = &cobra.Command{
 	},
 }
 
+var cmdProvidersDelete = &cobra.Command{
+	Use:     "delete <id>",
+	Aliases: []string{"rm"},
+	Short:   "Delete a provider API key",
+	Args:    cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if getToken() == "" {
+			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
+		}
+		id := args[0]
+		fmt.Printf("Delete provider key %s? [y/N]: ", id)
+		var answer string
+		fmt.Scanln(&answer)
+		if a := strings.TrimSpace(strings.ToLower(answer)); a != "y" && a != "yes" {
+			fmt.Println("Cancelled.")
+			return nil
+		}
+		if err := doRequest("DELETE", "/v1/provider-keys/"+id, nil, nil); err != nil {
+			return err
+		}
+		fmt.Printf("%s Provider key %s deleted.\n", green("✓"), id)
+		return nil
+	},
+}
+
 func init() {
-	cmdProviders.AddCommand(cmdProvidersList, cmdProvidersAdd)
+	cmdProviders.AddCommand(cmdProvidersList, cmdProvidersAdd, cmdProvidersDelete)
 }
