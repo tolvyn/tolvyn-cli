@@ -38,6 +38,11 @@ var cmdReconcileUpload = &cobra.Command{
 			return fmt.Errorf("--month is required (YYYY-MM)")
 		}
 
+		validProviders := map[string]bool{"openai": true, "anthropic": true, "google": true}
+		if !validProviders[reconcileProvider] {
+			return fmt.Errorf("invalid provider %q — must be one of: openai, anthropic, google", reconcileProvider)
+		}
+
 		f, err := os.Open(csvPath)
 		if err != nil {
 			return fmt.Errorf("open file: %w", err)
@@ -276,7 +281,7 @@ var cmdReconcileDelete = &cobra.Command{
 
 func init() {
 	cmdReconcileUpload.Flags().StringVar(&reconcileMonth, "month", "", "Invoice month YYYY-MM (required)")
-	cmdReconcileUpload.Flags().StringVar(&reconcileProvider, "provider", "openai", "Provider: openai")
+	cmdReconcileUpload.Flags().StringVar(&reconcileProvider, "provider", "openai", "Provider name: openai, anthropic, or google")
 
 	cmdReconcile.AddCommand(cmdReconcileUpload, cmdReconcileList, cmdReconcileDelete)
 }

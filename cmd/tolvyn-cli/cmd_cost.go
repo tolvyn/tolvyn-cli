@@ -256,6 +256,7 @@ func runCostByUser() error {
 			RequestCount int64   `json:"request_count"`
 			TotalCostUSD string  `json:"total_cost_usd"`
 			AvgCostUSD   string  `json:"avg_cost_usd"`
+			ModelCount   int64   `json:"model_count"`
 			TopModel     string  `json:"top_model"`
 			RetryRatePct float64 `json:"retry_rate_pct"`
 		} `json:"users"`
@@ -271,9 +272,10 @@ func runCostByUser() error {
 		return nil
 	}
 
-	fmt.Printf("%-35s  %-10s  %-10s  %-10s  %-20s  %s\n",
-		"User", "Requests", "Spend", "Avg Cost", "Top Model", "Retry Rate")
-	fmt.Println(strings.Repeat("─", 100))
+	// CLI-03: include model_count column (API already returns it).
+	fmt.Printf("%-35s  %-10s  %-10s  %-10s  %-7s  %-20s  %s\n",
+		"User", "Requests", "Spend", "Avg Cost", "Models", "Top Model", "Retry Rate")
+	fmt.Println(strings.Repeat("─", 110))
 
 	limit := 20
 	for i, u := range resp.Users {
@@ -286,11 +288,12 @@ func runCostByUser() error {
 		} else if u.RetryRatePct >= 2 {
 			retryColor = yellow
 		}
-		fmt.Printf("%-35s  %-10s  %-10s  %-10s  %-20s  %s\n",
+		fmt.Printf("%-35s  %-10s  %-10s  %-10s  %-7d  %-20s  %s\n",
 			u.User,
 			commaInt(u.RequestCount),
 			green(fmt.Sprintf("%-10s", u.TotalCostUSD)),
 			u.AvgCostUSD,
+			u.ModelCount,
 			u.TopModel,
 			retryColor(fmt.Sprintf("%.1f%%", u.RetryRatePct)),
 		)
