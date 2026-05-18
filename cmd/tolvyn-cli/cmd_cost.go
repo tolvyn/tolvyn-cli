@@ -31,7 +31,9 @@ var cmdCost = &cobra.Command{
 			return runCostByCustomer()
 		}
 		if costBy == "agent" {
-			fmt.Println("Agent breakdown coming in v1.4. Use tolvyn tail --agent <name> to filter live requests.")
+			fmt.Println("Per-agent cost breakdown is coming in v1.4.")
+			fmt.Println("To see agent activity now: tolvyn requests --json | grep agent_name")
+			fmt.Println("Or use tolvyn tail to watch live requests filtered by service.")
 			return nil
 		}
 

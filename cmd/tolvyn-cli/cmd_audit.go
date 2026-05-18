@@ -35,13 +35,13 @@ var cmdAudit = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("invalid --last value %q: use format like 24h, 7d, 30d", auditLast)
 			}
-			params["start"] = time.Now().Add(-dur).Format(time.RFC3339)
+			params["from"] = time.Now().Add(-dur).Format(time.RFC3339)
 		}
 		if auditFrom != "" {
-			params["start"] = auditFrom
+			params["from"] = auditFrom
 		}
 		if auditTo != "" {
-			params["end"] = auditTo
+			params["to"] = auditTo
 		}
 		params["limit"] = strconv.Itoa(auditLimit)
 
