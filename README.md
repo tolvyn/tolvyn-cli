@@ -179,9 +179,11 @@ tolvyn ledger verify || { echo "Ledger broken — investigate"; exit 1; }
 - Dashboard: [app.tolvyn.io](https://app.tolvyn.io)
 - Issues: [github.com/tolvyn/tolvyn-cli/issues](https://github.com/tolvyn/tolvyn-cli/issues)
 
-## Feedback
+## Community & Feedback
 
-[founder@tolvyn.io](mailto:founder@tolvyn.io)
+- Discussions: [github.com/tolvyn/tolvyn-cli/discussions](https://github.com/tolvyn/tolvyn-cli/discussions)
+- Email: [founder@tolvyn.io](mailto:founder@tolvyn.io)
+- Issues: [github.com/tolvyn/tolvyn-cli/issues](https://github.com/tolvyn/tolvyn-cli/issues)
 
 ---
 
