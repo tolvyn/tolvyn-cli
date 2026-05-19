@@ -8,7 +8,7 @@ import (
 )
 
 const defaultAPIURL = "https://api.tolvyn.io"
-const cliVersion = "1.0.0"
+const cliVersion = "1.3.0"
 
 var (
 	flagJSON    bool

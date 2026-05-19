@@ -1,6 +1,11 @@
-# TOLVYN CLI
+# tolvyn CLI
 
-Financial control plane for AI infrastructure.
+Command-line interface for TOLVYN — the financial control plane for AI infrastructure.
+
+[![GitHub release](https://img.shields.io/github/v/release/tolvyn/tolvyn-cli)](https://github.com/tolvyn/tolvyn-cli/releases)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
+**10,000 free requests forever. No credit card.**
 
 ## Install
 
@@ -14,31 +19,170 @@ Or via Go:
 go install github.com/tolvyn/tolvyn-cli@latest
 ```
 
-## Usage
+Or grab a platform binary directly from [github.com/tolvyn/tolvyn-cli/releases](https://github.com/tolvyn/tolvyn-cli/releases) (Linux x86_64/arm64, macOS Intel/Apple Silicon, Windows x86_64).
+
+## Quick start
 
 ```bash
-tolvyn login
-tolvyn tail              # live cost stream
-tolvyn cost              # spend summary
-tolvyn budgets list      # budget utilization
+tolvyn init          # interactive: API URL + email + password
+tolvyn status        # verify connection + auth
+tolvyn tail          # live request stream
+tolvyn cost          # spend summary
 ```
 
-Kill a runaway team immediately:
+## Commands
+
+58 cobra commands across 17 top-level groups.
+
+### Authentication
+
+| Command | Description |
+|---|---|
+| `tolvyn init` | Interactive setup — prompts for API URL, email, password |
+| `tolvyn login` | Authenticate with an existing account |
+| `tolvyn logout` | Clear stored credentials |
+| `tolvyn status` | Show API + DB health and current auth state |
+
+### Usage & cost
+
+| Command | Description |
+|---|---|
+| `tolvyn cost [--by model\|team\|service\|user\|customer]` | Spend summary, optionally grouped by a dimension |
+| `tolvyn requests` | List recent requests (`--team --service --model --from --to --limit`) |
+| `tolvyn requests show <id>` | Full detail for one request including ledger linkage |
+| `tolvyn tail` | Live SSE stream (`--team --service --model --min-cost --no-alerts`) |
+| `tolvyn usage export` | Export request log as CSV (`-o file`) |
+
+### Keys & providers
+
+| Command | Description |
+|---|---|
+| `tolvyn keys list \| create \| revoke` | Manage TOLVYN API keys (`--env production\|test`) |
+| `tolvyn providers list \| add \| delete` | Manage stored provider keys (OpenAI / Anthropic / Google) |
+
+### Teams
+
+| Command | Description |
+|---|---|
+| `tolvyn teams list \| create` | Manage teams (`--name`, `--cost-center`) |
+
+### Budgets
+
+| Command | Aliases | Description |
+|---|---|---|
+| `tolvyn budgets list` | `ls` | Show all budgets with utilization |
+| `tolvyn budgets create` | `set` | Create a budget (`--scope --amount --period --mode`) |
+| `tolvyn budgets delete` | `rm`, `remove` | Delete a budget |
+
+### Alerts
+
+| Command | Aliases | Description |
+|---|---|---|
+| `tolvyn alerts list` | `ls` | List alerts (`--unread --type --severity`) |
+| `tolvyn alerts ack <id>` | `acknowledge` | Mark an alert acknowledged |
+| `tolvyn alerts test` | — | Fire a synthetic test alert |
+
+### Webhooks
+
+| Command | Aliases | Description |
+|---|---|---|
+| `tolvyn webhooks list` | `ls` | List webhook endpoints |
+| `tolvyn webhooks create` | — | Create endpoint (`--url --events`); signing secret shown once |
+| `tolvyn webhooks delete <id>` | `rm` | Delete an endpoint |
+| `tolvyn webhooks test <id>` | — | Trigger a synthetic delivery |
+| `tolvyn webhooks deliveries <id>` | — | Recent 50 delivery attempts |
+
+Top-level alias: `tolvyn wh`.
+
+### Ledger
+
+| Command | Description |
+|---|---|
+| `tolvyn ledger list` | Paginated hash-chained ledger records (`--limit --offset --from --to`) |
+| `tolvyn ledger verify` | Walk the chain, validate every hash + HMAC. **Exits non-zero if broken — useful for CI/audit scripts** (`--from-seq --to-seq`) |
+| `tolvyn ledger export` | Stream CSV including `record_hash`, `previous_hash`, `hmac_signature` for offline verification (`-o file`) |
+
+### Models
+
+| Command | Description |
+|---|---|
+| `tolvyn models` | List available models with current pricing (`--provider`) |
+| `tolvyn models diff` | Historical pricing-change audit log (`--last 30d --provider`) |
+| `tolvyn models changes` | Currently active pricing-change notifications for models you use |
+
+### Savings
+
+| Command | Description |
+|---|---|
+| `tolvyn savings list` | Active savings findings from the nightly analyzer (`--min-savings`) |
+| `tolvyn savings dismiss <id>` | One-way dismiss (does not regenerate on future runs) |
+
+### Governance
+
+| Command | Aliases | Description |
+|---|---|---|
+| `tolvyn kill` | — | Emergency block (`--scope team\|service\|agent\|api_key\|all --target`) |
+| `tolvyn kill list` | `ls` | List active kill switches |
+| `tolvyn kill undo <id>` | `deactivate`, `rm` | Lift a kill switch |
+| `tolvyn audit` | — | Audit log (`--from --to --last --format table\|csv --limit`) |
+| `tolvyn reconcile upload <file.csv>` | — | Reconcile provider invoice CSV against TOLVYN ledger |
+| `tolvyn reconcile list` | `ls` | Past runs |
+| `tolvyn reconcile delete <run-id>` | `rm` | Delete a past run |
+
+### Other
+
+| Command | Description |
+|---|---|
+| `tolvyn version` | Print CLI version |
+
+## Global flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--json` | `false` | Output raw JSON instead of formatted tables |
+| `--no-color` | `false` | Disable ANSI colors (auto-disabled when stdout is not a TTY) |
+| `--api-url` | from config | Override API endpoint (default `https://api.tolvyn.io`) |
+
+## Configuration
+
+Config file lives at `~/.tolvyn/config.json` (created on first `tolvyn init` / `tolvyn login`). Permissions: file `0600`, directory `0700`.
+
+```json
+{
+  "api_url": "https://api.tolvyn.io",
+  "token": "eyJhbGciOiJIUzI1NiIsInR...",
+  "default_environment": "production"
+}
+```
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | Generic error (network, auth, validation, server 4xx/5xx) |
+
+`tolvyn ledger verify` exits with code `1` if the chain integrity check fails — useful for CI/audit scripts:
 
 ```bash
-tolvyn kill --team marketing
+tolvyn ledger verify || { echo "Ledger broken — investigate"; exit 1; }
 ```
 
-## What you get
+## Changelog
 
-- `tolvyn tail` — stream every AI request live: team, service, model, tokens, cost, latency
-- `tolvyn cost` — spend breakdown by team, model, or date range
-- `tolvyn budgets` — set hard limits that block requests before they hit your provider
-- `tolvyn kill` — emergency stop for any team
+[github.com/tolvyn/tolvyn-cli/releases](https://github.com/tolvyn/tolvyn-cli/releases)
 
-Full docs: [docs.tolvyn.io](https://docs.tolvyn.io)
-Free trial: [tolvyn.io](https://tolvyn.io)
+## Links
+
+- CLI reference: [docs.tolvyn.io/reference/cli](https://docs.tolvyn.io/reference/cli)
+- API reference: [docs.tolvyn.io/reference/api](https://docs.tolvyn.io/reference/api)
+- Dashboard: [app.tolvyn.io](https://app.tolvyn.io)
+- Issues: [github.com/tolvyn/tolvyn-cli/issues](https://github.com/tolvyn/tolvyn-cli/issues)
+
+## Feedback
+
+[founder@tolvyn.io](mailto:founder@tolvyn.io)
 
 ---
 
-© 2026 TOLVYN. All rights reserved.
+© 2026 TOLVYN. Apache 2.0 licensed.
