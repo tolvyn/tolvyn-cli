@@ -15,6 +15,21 @@ var cmdProviders = &cobra.Command{
 	Short: "Manage provider API keys (list, add)",
 }
 
+// addableProviders is the client-side known-good set, kept in sync with the
+// providers the proxy can route + the dashboard's provider dropdown:
+// openai, anthropic, google, deepseek. The backend (HandleCreateProviderKey)
+// enforces no allowlist, so this is a convenience guard to catch typos before a
+// useless credential is stored — not a security boundary. Add new providers here
+// when a proxy adapter is added.
+var addableProviders = map[string]bool{
+	"openai":    true,
+	"anthropic": true,
+	"google":    true,
+	"deepseek":  true,
+}
+
+func isAddableProvider(p string) bool { return addableProviders[strings.ToLower(p)] }
+
 var cmdProvidersList = &cobra.Command{
 	Use:   "list",
 	Short: "List connected providers",
@@ -62,17 +77,15 @@ var cmdProvidersList = &cobra.Command{
 
 var cmdProvidersAdd = &cobra.Command{
 	Use:   "add <provider>",
-	Short: "Add a provider API key (openai, anthropic, google)",
+	Short: "Add a provider API key (openai, anthropic, google, deepseek)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if getToken() == "" {
 			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
 		}
 		provider := strings.ToLower(args[0])
-		switch provider {
-		case "openai", "anthropic", "google":
-		default:
-			return fmt.Errorf("unsupported provider %q (use: openai, anthropic, google)", provider)
+		if !isAddableProvider(provider) {
+			return fmt.Errorf("unsupported provider %q (use: openai, anthropic, google, deepseek)", provider)
 		}
 
 		fmt.Printf("Enter %s API key (input hidden): ", provider)
