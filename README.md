@@ -5,7 +5,7 @@ Command-line interface for TOLVYN — the control and evidence layer for AI spen
 [![GitHub release](https://img.shields.io/github/v/release/tolvyn/tolvyn-cli)](https://github.com/tolvyn/tolvyn-cli/releases)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-**10,000 free requests forever. No credit card.**
+**10,000 free requests a month. No credit card.**
 
 ## Install
 
