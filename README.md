@@ -1,6 +1,6 @@
 # tolvyn CLI
 
-Command-line interface for TOLVYN — the financial control plane for AI infrastructure.
+Command-line interface for TOLVYN — the control and evidence layer for AI spend.
 
 [![GitHub release](https://img.shields.io/github/v/release/tolvyn/tolvyn-cli)](https://github.com/tolvyn/tolvyn-cli/releases)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
