@@ -13,6 +13,18 @@ Command-line interface for TOLVYN — the control and evidence layer for AI spen
 curl -fsSL https://releases.tolvyn.io/install.sh | sh
 ```
 
+The script checks the download against the release's `SHA256SUMS` and stops if they differ. With
+[cosign](https://github.com/sigstore/cosign) installed it also checks that the release was built by this repository's
+release workflow. `TOLVYN_VERSION=v1.3.2` installs a given release. To check a download by hand, fetch the binary,
+`SHA256SUMS` and `SHA256SUMS.sigstore.json` from the release, then run:
+
+```bash
+sha256sum -c --ignore-missing SHA256SUMS
+cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity "https://github.com/tolvyn/tolvyn-cli/.github/workflows/release.yml@refs/tags/v1.3.2" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
 Or via Go:
 
 ```bash
@@ -141,19 +153,22 @@ Top-level alias: `tolvyn wh`.
 |---|---|---|
 | `--json` | `false` | Output raw JSON instead of formatted tables |
 | `--no-color` | `false` | Disable ANSI colors (auto-disabled when stdout is not a TTY) |
-| `--api-url` | from config | Override API endpoint (default `https://api.tolvyn.io`) |
+| `--api-url` | from config | Override API endpoint (default `https://api.tolvyn.io`). It must start with `https://` (`http://` only for `localhost`). Your sign-in is sent only to the server you signed in to; to use another server, sign in there: `tolvyn login --api-url https://...` |
 
 ## Configuration
 
-Config file lives at `~/.tolvyn/config.json` (created on first `tolvyn init` / `tolvyn login`). Permissions: file `0600`, directory `0700`.
+Config file lives at `~/.tolvyn/config.json` (created on first `tolvyn init` / `tolvyn login`). Permissions: file `0600`, directory `0700`, set again on every save.
 
 ```json
 {
   "api_url": "https://api.tolvyn.io",
   "token": "eyJhbGciOiJIUzI1NiIsInR...",
+  "token_api_url": "https://api.tolvyn.io",
   "default_environment": "production"
 }
 ```
+
+`token_api_url` is the server that issued the token; the token is sent to no other.
 
 ## Exit codes
 
