@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -183,30 +184,65 @@ func doRequestAt(baseURL, method, path string, body any, v any) error {
 	return nil
 }
 
+// exportIdle stops an export after this long without data. An export has no total time limit: httpClient's 30 s
+// would cut a large one off part-way.
+var exportIdle = 60 * time.Second
+
+var exportClient = &http.Client{CheckRedirect: noRedirect}
+
 // doRequestStream returns the response to a GET for the caller to stream (an export): not read into memory, so not
-// capped. A status other than 200 is an error, with the start of its body.
+// capped, and stopped only after exportIdle without data. A status other than 200 is an error, with the start of its
+// body.
 func doRequestStream(path string) (io.ReadCloser, error) {
 	base := getAPIURL()
 	if err := validateAPIURL(base); err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("GET", base+path, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	idle := time.AfterFunc(exportIdle, cancel)
+	stop := func() { idle.Stop(); cancel() }
+	req, err := http.NewRequestWithContext(ctx, "GET", base+path, nil)
 	if err != nil {
+		stop()
 		return nil, fmt.Errorf("could not connect to API at %s. Run 'tolvyn status' to diagnose", base)
 	}
 	if tok := tokenFor(base); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
-	resp, err := httpClient.Do(req)
+	resp, err := exportClient.Do(req)
 	if err != nil {
+		stop()
 		return nil, fmt.Errorf("could not connect to API at %s: %w", base, err)
 	}
 	if resp.StatusCode != 200 {
+		defer stop()
 		defer resp.Body.Close()
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, b)
 	}
-	return resp.Body, nil
+	return &idleBody{ReadCloser: resp.Body, idle: idle, ctx: ctx, stop: stop}, nil
+}
+
+// idleBody restarts the export's idle timer on every read.
+type idleBody struct {
+	io.ReadCloser
+	idle *time.Timer
+	ctx  context.Context
+	stop func()
+}
+
+func (b *idleBody) Read(p []byte) (int, error) {
+	b.idle.Reset(exportIdle)
+	n, err := b.ReadCloser.Read(p)
+	if err != nil && err != io.EOF && b.ctx.Err() != nil {
+		err = fmt.Errorf("the export stopped: no data from the API for %s", exportIdle)
+	}
+	return n, err
+}
+
+func (b *idleBody) Close() error {
+	b.stop()
+	return b.ReadCloser.Close()
 }
 
 // doRequestRaw returns the raw response bytes (for --json flag).

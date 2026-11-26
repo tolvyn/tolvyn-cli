@@ -226,27 +226,22 @@ func TestNoQueryValueIsJoinedByHand(t *testing.T) {
 
 func TestExportsArePrivateAndNeverOverwrite(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "x.csv")
-	f, err := createExportFile(p, false)
-	if err != nil {
+	if _, err := writeExport(p, false, strings.NewReader("first")); err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString("first") //nolint:errcheck
-	f.Close()
 	if st, _ := os.Stat(p); st.Mode().Perm() != 0o600 {
 		t.Errorf("a new export is %o", st.Mode().Perm())
 	}
-	if _, err := createExportFile(p, false); err == nil {
-		t.Errorf("an existing file was opened for overwriting without --force")
+	if _, err := writeExport(p, false, strings.NewReader("second")); err == nil {
+		t.Errorf("an existing file was overwritten without --force")
 	}
 	if b, _ := os.ReadFile(p); string(b) != "first" {
 		t.Errorf("the existing file changed: %q", b)
 	}
 	os.Chmod(p, 0o644) //nolint:errcheck
-	f, err = createExportFile(p, true)
-	if err != nil {
+	if _, err := writeExport(p, true, strings.NewReader("")); err != nil {
 		t.Fatal(err)
 	}
-	f.Close()
 	if st, _ := os.Stat(p); st.Mode().Perm() != 0o600 || st.Size() != 0 {
 		t.Errorf("with --force: mode %o, size %d", st.Mode().Perm(), st.Size())
 	}

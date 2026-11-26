@@ -52,16 +52,11 @@ func runUsageExport(cmd *cobra.Command, args []string) error {
 	}
 	defer body.Close()
 
-	var out io.Writer = os.Stdout
 	if outPath != "" {
 		force, _ := cmd.Flags().GetBool("force")
-		f, err := createExportFile(outPath, force)
-		if err != nil {
-			return fmt.Errorf("create %s: %w", outPath, err)
-		}
-		defer f.Close()
-		out = f
+		_, err = writeExport(outPath, force, body)
+		return err
 	}
-	_, err = io.Copy(out, body)
+	_, err = io.Copy(os.Stdout, body)
 	return err
 }

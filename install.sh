@@ -23,6 +23,12 @@ verify_checksum() {
   fi
 }
 
+# version_ok <v>: a release version, vN.N.N, on one line (a case pattern sees the whole string; grep sees lines).
+version_ok() {
+  case "$1" in *[!v0-9.]*) return 1 ;; esac
+  printf '%s\n' "$1" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
+}
+
 # install_binary <file> <dir> <name>: the binary installed 0755, and owned by root when sudo is needed. A move would
 # keep the downloaded file's owner (the installing user) and mktemp's mode.
 install_binary() {
@@ -76,7 +82,7 @@ if [ -z "$LATEST" ]; then
   echo "Failed to fetch latest release."
   exit 1
 fi
-if ! printf '%s\n' "$LATEST" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+if ! version_ok "$LATEST"; then
   echo "Not a release version: $LATEST (TOLVYN_VERSION takes the form v1.3.2). Nothing was installed."
   exit 1
 fi

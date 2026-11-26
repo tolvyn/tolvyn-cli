@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"time"
 
@@ -173,38 +172,21 @@ var cmdLedgerExport = &cobra.Command{
 		}
 		path := "/v1/ledger?" + buildQueryString(params)
 
-		req, err := http.NewRequest("GET", getAPIURL()+path, nil)
-		if err != nil {
-			return fmt.Errorf("build request: %w", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+getToken())
-
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			return fmt.Errorf("request failed: %w", err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			return fmt.Errorf("server returned %d", resp.StatusCode)
-		}
-
-		var out io.Writer = os.Stdout
-		if ledgerOutput != "" {
-			f, err := createExportFile(ledgerOutput, ledgerForce)
-			if err != nil {
-				return fmt.Errorf("create %s: %w", ledgerOutput, err)
-			}
-			defer f.Close()
-			out = f
-		}
-
-		n, err := io.Copy(out, resp.Body)
+		body, err := doRequestStream(path)
 		if err != nil {
 			return err
 		}
-		if ledgerOutput != "" {
-			fmt.Fprintf(os.Stderr, "%s Wrote %d bytes to %s\n", green("✓"), n, ledgerOutput)
+		defer body.Close()
+
+		if ledgerOutput == "" {
+			_, err = io.Copy(os.Stdout, body)
+			return err
 		}
+		n, err := writeExport(ledgerOutput, ledgerForce, body)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "%s Wrote %d bytes to %s\n", green("✓"), n, ledgerOutput)
 		return nil
 	},
 }

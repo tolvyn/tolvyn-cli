@@ -2,27 +2,47 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 )
 
-// createExportFile creates an export, readable only by its owner. An existing file is refused unless force is set;
-// with force a file or symlink at the path is removed first, never written through (BE-659).
-func createExportFile(path string, force bool) (*os.File, error) {
-	if st, err := os.Lstat(path); force && err == nil && (st.Mode().IsRegular() || st.Mode()&os.ModeSymlink != 0) {
-		if err := os.Remove(path); err != nil {
-			return nil, err
+// writeExport writes an export from r to path, readable only by its owner, and only once all of it arrived: it is
+// written to a temporary file beside path and renamed over it at the end, so a failure part-way leaves nothing behind
+// and an old file untouched. Without force an existing path is refused; its name is reserved first, so it cannot be
+// taken in between. A rename replaces a file or symlink at path; it never writes through one (BE-659).
+func writeExport(path string, force bool, r io.Reader) (int64, error) {
+	if !force {
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if err != nil {
+			if os.IsExist(err) {
+				return 0, fmt.Errorf("%s exists; pass --force to overwrite it", path)
+			}
+			return 0, err
 		}
-	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		if os.IsExist(err) {
-			return nil, fmt.Errorf("%s exists; pass --force to overwrite it", path)
-		}
-		return nil, err
-	}
-	if err := f.Chmod(0o600); err != nil {
 		f.Close()
-		return nil, err
 	}
-	return f, nil
+	n, err := writeThenRename(path, r)
+	if err != nil && !force {
+		os.Remove(path) //nolint:errcheck // the empty file reserved above
+	}
+	return n, err
+}
+
+func writeThenRename(path string, r io.Reader) (int64, error) {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".tolvyn-export-*") // created 0600
+	if err != nil {
+		return 0, err
+	}
+	n, err := io.Copy(tmp, r)
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Rename(tmp.Name(), path)
+	}
+	if err != nil {
+		os.Remove(tmp.Name()) //nolint:errcheck
+	}
+	return n, err
 }

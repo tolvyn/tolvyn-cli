@@ -73,12 +73,9 @@ func TestForceNeverWritesThroughASymlink(t *testing.T) {
 	os.WriteFile(target, []byte("keep"), 0o644) //nolint:errcheck
 	p := filepath.Join(d, "export.csv")
 	os.Symlink(target, p) //nolint:errcheck
-	f, err := createExportFile(p, true)
-	if err != nil {
+	if _, err := writeExport(p, true, strings.NewReader("new")); err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString("new") //nolint:errcheck
-	f.Close()
 	if b, _ := os.ReadFile(target); string(b) != "keep" {
 		t.Errorf("the symlink's target was written: %q", b)
 	}
@@ -300,5 +297,33 @@ func TestASteadyExportIsNotCutOffByTheClientTimeout(t *testing.T) {
 	b, err := io.ReadAll(body)
 	if err != nil || len(b) != 32 {
 		t.Errorf("read %d bytes, err=%v", len(b), err)
+	}
+}
+
+// An export that stops sending data is stopped after exportIdle, with a message saying so.
+func TestAStalledExportStops(t *testing.T) {
+	_, aURL, _ := serve(t, "127.0.0.1", func(w http.ResponseWriter, q *http.Request) {
+		w.Header().Set("Content-Type", "text/csv")
+		w.Write([]byte("row\n")) //nolint:errcheck
+		w.(http.Flusher).Flush()
+		select {
+		case <-q.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+	})
+	home(t)
+	save(t, Config{APIURL: aURL, Token: "tok", TokenAPIURL: aURL})
+	old := exportIdle
+	exportIdle = 300 * time.Millisecond
+	defer func() { exportIdle = old }()
+	start := time.Now()
+	body, err := doRequestStream("/v1/usage/requests")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer body.Close()
+	_, err = io.ReadAll(body)
+	if err == nil || !strings.Contains(err.Error(), "no data") || time.Since(start) > 3*time.Second {
+		t.Errorf("a stalled export: err=%v after %v", err, time.Since(start))
 	}
 }
