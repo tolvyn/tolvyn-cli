@@ -23,6 +23,17 @@ verify_checksum() {
   fi
 }
 
+# install_binary <file> <dir> <name>: the binary installed 0755, and owned by root when sudo is needed. A move would
+# keep the downloaded file's owner (the installing user) and mktemp's mode.
+install_binary() {
+  if [ -w "$2" ]; then
+    install -m 0755 "$1" "$2/$3"
+  else
+    echo "Installing to $2 (requires sudo)..."
+    sudo install -o 0 -g 0 -m 0755 "$1" "$2/$3"
+  fi
+}
+
 # Sourced with TOLVYN_INSTALL_LIB=1 (the CLI's tests): the functions only.
 if [ -n "${TOLVYN_INSTALL_LIB:-}" ]; then
   return 0
@@ -93,13 +104,7 @@ if command -v cosign >/dev/null 2>&1; then
   echo "Signature verified (cosign)."
 fi
 
-chmod +x "$WORK/$ASSET"
-if [ -w "$INSTALL_DIR" ]; then
-  mv "$WORK/$ASSET" "$INSTALL_DIR/$BINARY_NAME"
-else
-  echo "Installing to $INSTALL_DIR (requires sudo)..."
-  sudo mv "$WORK/$ASSET" "$INSTALL_DIR/$BINARY_NAME"
-fi
+install_binary "$WORK/$ASSET" "$INSTALL_DIR" "$BINARY_NAME"
 
 echo ""
 echo "✓ TOLVYN CLI installed"
