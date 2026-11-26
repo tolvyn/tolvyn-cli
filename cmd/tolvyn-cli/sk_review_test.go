@@ -1,5 +1,5 @@
 // The SK round's review fixes (26 Nov), loopback only.
-//   - BE-656: a config written before 1.3.2 is bound to its api_url on first load, so a later change of api_url does
+//   - BE-656: a config written before 1.3.1 is bound to its api_url on first load, so a later change of api_url does
 //     not take the token with it; the issuer is compared by scheme, host and port; tail refuses a redirect.
 //   - BE-659: --force never writes through a symlink at the output path; usage export streams past the in-memory cap;
 //     reconcile upload's response is capped.
@@ -15,6 +15,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -325,5 +327,42 @@ func TestAStalledExportStops(t *testing.T) {
 	_, err = io.ReadAll(body)
 	if err == nil || !strings.Contains(err.Error(), "no data") || time.Since(start) > 3*time.Second {
 		t.Errorf("a stalled export: err=%v after %v", err, time.Since(start))
+	}
+}
+
+// F6 (Gate 2): the release builds exactly the asset names v1.3.0 shipped, and install.sh asks for exactly the four
+// that are not Windows. Users and install.sh fetch these names; a rename breaks them.
+func TestReleaseAssetsAreTheNamesV130Shipped(t *testing.T) {
+	v130 := []string{"tolvyn-darwin-amd64", "tolvyn-darwin-arm64", "tolvyn-linux-amd64", "tolvyn-linux-arm64", "tolvyn-windows-amd64.exe"}
+	wf, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "release.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`target: \[([^\]]*)\]`).FindSubmatch(wf)
+	if m == nil || !strings.Contains(string(wf), `-o "dist/tolvyn-${GOOS}-${GOARCH}${ext}"`) ||
+		!strings.Contains(string(wf), `ext=""; [ "$GOOS" = windows ] && ext=".exe"`) {
+		t.Fatalf("the workflow's build matrix or output name changed shape")
+	}
+	var built []string
+	for _, target := range strings.Split(string(m[1]), ",") {
+		goos, goarch, _ := strings.Cut(strings.TrimSpace(target), "/")
+		name := "tolvyn-" + goos + "-" + goarch
+		if goos == "windows" {
+			name += ".exe"
+		}
+		built = append(built, name)
+	}
+	sort.Strings(built)
+	if strings.Join(built, " ") != strings.Join(v130, " ") {
+		t.Errorf("the workflow builds %v, v1.3.0 shipped %v", built, v130)
+	}
+	sh, _ := os.ReadFile(filepath.Join("..", "..", "install.sh"))
+	var asked []string
+	for _, a := range regexp.MustCompile(`ASSET="([^"]+)"`).FindAllSubmatch(sh, -1) {
+		asked = append(asked, string(a[1]))
+	}
+	sort.Strings(asked)
+	if strings.Join(asked, " ") != strings.Join(v130[:4], " ") {
+		t.Errorf("install.sh asks for %v, want %v", asked, v130[:4])
 	}
 }
