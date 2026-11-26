@@ -328,6 +328,24 @@ func TestInstallScriptRefusesAMismatchedChecksum(t *testing.T) {
 	}
 }
 
+// BE-501: the installed binary is 0755 (root-owned when sudo is used), not the 0711 of mktemp's file left owned by
+// the installing user.
+func TestInstallScriptInstallsTheBinary0755(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "downloaded")
+	os.WriteFile(src, []byte("the binary"), 0o600) //nolint:errcheck
+	dest := filepath.Join(dir, "bin")
+	os.MkdirAll(dest, 0o755) //nolint:errcheck
+	cmd := exec.Command("sh", "-c", `TOLVYN_INSTALL_LIB=1 . "$1" && install_binary "$2" "$3" tolvyn`, "sh",
+		filepath.Join("..", "..", "install.sh"), src, dest)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("install_binary: %v: %s", err, out)
+	}
+	if st, err := os.Stat(filepath.Join(dest, "tolvyn")); err != nil || st.Mode().Perm() != 0o755 {
+		t.Errorf("the installed binary: %v, mode %v", err, st)
+	}
+}
+
 func run(t *testing.T, dir, script string) string {
 	t.Helper()
 	cmd := exec.Command("sh", "-c", script)
