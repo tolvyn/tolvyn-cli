@@ -1,6 +1,6 @@
 # A GitHub release for each v* tag: the CLI's binaries under the names install.sh expects, SHA256SUMS, and a keyless
 # cosign signature of the sums (Sigstore, from this workflow's OIDC identity; install.sh checks both). The release job
-# waits for the founder's approval in the `release` environment. Every action is pinned to a full commit SHA, the
+# waits for a maintainer's approval in the `release` environment. Every action is pinned to a full commit SHA, the
 # release tag it was resolved from in the comment beside it.
 name: release
 on:
