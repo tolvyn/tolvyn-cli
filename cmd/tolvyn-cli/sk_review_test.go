@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -271,6 +272,19 @@ func TestAFailedExportLeavesNothingBehind(t *testing.T) {
 	if _, err := os.Lstat(fresh); err == nil {
 		t.Errorf("a cut-off export left a file behind")
 	}
+	ledgerOld := filepath.Join(h, "ledger-old.csv")
+	os.WriteFile(ledgerOld, []byte("old"), 0o600) //nolint:errcheck
+	if _, err := tolvyn(t, h, "ledger", "export", "-o", ledgerOld, "--force"); err == nil {
+		t.Errorf("a cut-off ledger export succeeded")
+	}
+	if b, _ := os.ReadFile(ledgerOld); string(b) != "old" {
+		t.Errorf("ledger --force: the old file is now %q", b)
+	}
+	ledgerFresh := filepath.Join(h, "ledger-fresh.csv")
+	tolvyn(t, h, "ledger", "export", "-o", ledgerFresh) //nolint:errcheck
+	if _, err := os.Lstat(ledgerFresh); err == nil {
+		t.Errorf("a cut-off ledger export left a file behind")
+	}
 	if left, _ := filepath.Glob(filepath.Join(h, ".tolvyn-export-*")); len(left) != 0 {
 		t.Errorf("temporary files left: %v", left)
 	}
@@ -288,9 +302,9 @@ func TestASteadyExportIsNotCutOffByTheClientTimeout(t *testing.T) {
 	})
 	home(t)
 	save(t, Config{APIURL: aURL, Token: "tok", TokenAPIURL: aURL})
-	old := httpClient.Timeout
-	httpClient.Timeout = 300 * time.Millisecond
-	defer func() { httpClient.Timeout = old }()
+	old, oldIdle := httpClient.Timeout, exportIdle
+	httpClient.Timeout, exportIdle = 300*time.Millisecond, 300*time.Millisecond
+	defer func() { httpClient.Timeout, exportIdle = old, oldIdle }()
 	body, err := doRequestStream("/v1/usage/requests")
 	if err != nil {
 		t.Fatal(err)
@@ -364,5 +378,50 @@ func TestReleaseAssetsAreTheNamesV130Shipped(t *testing.T) {
 	sort.Strings(asked)
 	if strings.Join(asked, " ") != strings.Join(v130[:4], " ") {
 		t.Errorf("install.sh asks for %v, want %v", asked, v130[:4])
+	}
+}
+
+// The idle timer runs only while the CLI waits on the API: a reader that pauses (an export piped into less) does not
+// stop an export the API is still sending.
+func TestASlowReaderKeepsTheExportAlive(t *testing.T) {
+	_, aURL, _ := serve(t, "127.0.0.1", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/csv")
+		w.Write([]byte("a\n")) //nolint:errcheck
+		w.(http.Flusher).Flush()
+		time.Sleep(400 * time.Millisecond) // while the reader is away, longer than the idle limit
+		w.Write([]byte("b\nc\n"))          //nolint:errcheck
+	})
+	home(t)
+	save(t, Config{APIURL: aURL, Token: "tok", TokenAPIURL: aURL})
+	old := exportIdle
+	exportIdle = 300 * time.Millisecond
+	defer func() { exportIdle = old }()
+	body, err := doRequestStream("/v1/usage/requests")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer body.Close()
+	first := make([]byte, 2)
+	if _, err := io.ReadFull(body, first); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(700 * time.Millisecond) // the reader is busy elsewhere
+	rest, err := io.ReadAll(body)
+	if err != nil || string(first)+string(rest) != "a\nb\nc\n" {
+		t.Errorf("after a pause: %q, err=%v", string(first)+string(rest), err)
+	}
+}
+
+// --force replaces a file or a symlink, nothing else: a named pipe (or a device) at the path is refused and kept.
+func TestForceRefusesASpecialFile(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "pipe")
+	if err := syscall.Mkfifo(p, 0o600); err != nil {
+		t.Skip("no named pipes here:", err)
+	}
+	if _, err := writeExport(p, true, strings.NewReader("x")); err == nil {
+		t.Errorf("--force replaced a named pipe")
+	}
+	if st, err := os.Lstat(p); err != nil || st.Mode()&os.ModeNamedPipe == 0 {
+		t.Errorf("the named pipe is now %v (err %v)", st, err)
 	}
 }
