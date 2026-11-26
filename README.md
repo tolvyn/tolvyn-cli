@@ -15,13 +15,13 @@ curl -fsSL https://releases.tolvyn.io/install.sh | sh
 
 The script checks the download against the release's `SHA256SUMS` and stops if they differ. With
 [cosign](https://github.com/sigstore/cosign) installed it also checks that the release was built by this repository's
-release workflow. `TOLVYN_VERSION=v1.3.2` installs a given release. To check a download by hand, fetch the binary,
+release workflow. `TOLVYN_VERSION=v1.3.1` installs a given release. To check a download by hand, fetch the binary,
 `SHA256SUMS` and `SHA256SUMS.sigstore.json` from the release, then run:
 
 ```bash
 sha256sum -c --ignore-missing SHA256SUMS
 cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json \
-  --certificate-identity "https://github.com/tolvyn/tolvyn-cli/.github/workflows/release.yml@refs/tags/v1.3.2" \
+  --certificate-identity "https://github.com/tolvyn/tolvyn-cli/.github/workflows/release.yml@refs/tags/v1.3.1" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -169,6 +169,15 @@ Config file lives at `~/.tolvyn/config.json` (created on first `tolvyn init` / `
 ```
 
 `token_api_url` is the server that issued the token; the token is sent to no other.
+
+Two things to know about how the file is written:
+
+- **A config from before 1.3.1 is updated once.** It has a token but no `token_api_url`. The first command 1.3.1
+  runs records the file's `api_url` there, and saves. A `tolvyn login` or `tolvyn logout` finishing at that same
+  moment can be overwritten: sign in again if that happens.
+- **Every save replaces the file.** The new config is written to a temporary file in `~/.tolvyn` and renamed over
+  `config.json`. If `config.json` is a symlink, it becomes a regular file, and the symlink's target is left
+  unchanged.
 
 ## Exit codes
 

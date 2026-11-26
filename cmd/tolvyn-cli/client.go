@@ -64,7 +64,7 @@ func origin(raw string) string {
 }
 
 // tokenFor returns the stored token if it was issued by base's server, else "": a token goes only to the server that
-// issued it (loadConfig binds a config written before 1.3.2 to its api_url).
+// issued it (loadConfig binds a config written before 1.3.1 to its api_url).
 func tokenFor(base string) string {
 	cfg, err := loadConfig()
 	if err != nil || cfg.Token == "" {

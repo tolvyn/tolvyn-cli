@@ -9,7 +9,7 @@ import (
 type Config struct {
 	APIURL             string `json:"api_url"`
 	Token              string `json:"token,omitempty"`
-	TokenAPIURL        string `json:"token_api_url,omitempty"` // the server that issued Token (1.3.2)
+	TokenAPIURL        string `json:"token_api_url,omitempty"` // the server that issued Token (1.3.1)
 	DefaultEnvironment string `json:"default_environment,omitempty"`
 }
 
@@ -33,7 +33,7 @@ func loadConfig() (*Config, error) {
 	if cfg.APIURL == "" {
 		cfg.APIURL = defaultAPIURL
 	}
-	// A config written before 1.3.2 has a token but no token_api_url: its token was issued by its api_url. That is
+	// A config written before 1.3.1 has a token but no token_api_url: its token was issued by its api_url. That is
 	// recorded on the first load, so a later change of api_url does not take the token with it (BE-656). A failed save
 	// still binds it for this run.
 	if cfg.Token != "" && cfg.TokenAPIURL == "" {
@@ -45,7 +45,7 @@ func loadConfig() (*Config, error) {
 
 // saveConfig writes the config readable only by its owner, every time: a temporary file 0600 in the same directory,
 // renamed over the old one, and the directory set to 0700 (an existing config or directory kept its old mode before
-// 1.3.2, BE-667).
+// 1.3.1, BE-667).
 func saveConfig(cfg *Config) error {
 	path := configPath()
 	dir := filepath.Dir(path)

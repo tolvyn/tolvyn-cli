@@ -1,13 +1,13 @@
 # Changelog
 
-## 1.3.2 — unreleased
+## 1.3.1 — unreleased
 
 ### Security
 
 - **The API URL must start with `https://`** (`http://` only for `localhost`, `127.0.0.1` and `[::1]`), from the config,
   `--api-url` and `tolvyn login`.
 - **A sign-in is sent only to the server that issued it.** `--api-url` naming another server says so and sends nothing;
-  sign in there instead. A config written before 1.3.2 counts as issued by the `api_url` it has when 1.3.2 first
+  sign in there instead. A config written before 1.3.1 counts as issued by the `api_url` it has when 1.3.1 first
   reads it, and records that.
 - **Redirects are not followed.**
 - **Query values and ids are escaped** in every request.
@@ -18,16 +18,14 @@
   without data, not after 30 seconds in total.
 - **`tail` stops after a minute without data** from the API.
 - **`install.sh` checks the release's checksums** and, with cosign installed, its signature, and installs the binary
-  `0755`, owned by root when it uses sudo. `TOLVYN_VERSION` must be a release version (`v1.3.2`);
+  `0755`, owned by root when it uses sudo. `TOLVYN_VERSION` must be a release version (`v1.3.1`);
   `TOLVYN_INSTALL_DIR` installs elsewhere than `/usr/local/bin`.
 
-## 1.3.1 — 2026-11-13
 
 ### Documentation
 
-- README: providers and wording updated; no code change.
-- The repository's LICENSE file (Apache License 2.0, as the README's badge says) was added after 1.3.0.
-- `tolvyn version` reports 1.3.1. The version string is the only change in the source.
+- README: providers and wording updated (13 Nov), and the LICENSE file (Apache License 2.0, as the README's badge
+  says) added. That change was numbered 1.3.1 but never released; it ships here.
 
 ## 1.3.0 — 2026-05-19
 

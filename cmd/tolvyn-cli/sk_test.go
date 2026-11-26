@@ -1,7 +1,7 @@
 // The SK round's tests for tolvyn-cli, the CLI's first. Loopback only (run in a no-network sandbox): 127.0.0.1 is the
 // API, localhost another host. HOME is a temporary directory in every test.
 //   - BE-612: an API URL that is not https is refused, except to localhost, 127.0.0.1 and [::1].
-//   - BE-656: the token goes only to the server that issued it; a config written before 1.3.2 is bound to its api_url;
+//   - BE-656: the token goes only to the server that issued it; a config written before 1.3.1 is bound to its api_url;
 //     no redirect is followed.
 //   - BE-657: query values and ids are escaped.
 //   - BE-659: exports are created 0600 and never overwrite without --force; responses are capped; tail stops after a
