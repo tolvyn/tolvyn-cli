@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -26,6 +25,7 @@ func init() {
 	cmdUsageExport.Flags().String("service", "", "Service name filter")
 	cmdUsageExport.Flags().String("model", "", "Model ID filter")
 	cmdUsageExport.Flags().StringP("output", "o", "", "Write to file instead of stdout")
+	cmdUsageExport.Flags().Bool("force", false, "Overwrite the output file if it exists")
 	cmdUsage.AddCommand(cmdUsageExport)
 }
 
@@ -41,24 +41,9 @@ func runUsageExport(cmd *cobra.Command, args []string) error {
 	model, _ := cmd.Flags().GetString("model")
 	outPath, _ := cmd.Flags().GetString("output")
 
-	parts := []string{"format=csv"}
-	if from != "" {
-		parts = append(parts, "from="+from)
-	}
-	if to != "" {
-		parts = append(parts, "to="+to)
-	}
-	if team != "" {
-		parts = append(parts, "team_id="+team)
-	}
-	if service != "" {
-		parts = append(parts, "service="+service)
-	}
-	if model != "" {
-		parts = append(parts, "model="+model)
-	}
-
-	path := "/v1/usage/requests?" + strings.Join(parts, "&")
+	path := "/v1/usage/requests?" + buildQueryString(map[string]string{
+		"format": "csv", "from": from, "to": to, "team_id": team, "service": service, "model": model,
+	})
 
 	data, status, err := doRequestRaw("GET", path, nil)
 	if err != nil {
@@ -69,7 +54,8 @@ func runUsageExport(cmd *cobra.Command, args []string) error {
 	}
 
 	if outPath != "" {
-		f, err := os.Create(outPath)
+		force, _ := cmd.Flags().GetBool("force")
+		f, err := createExportFile(outPath, force)
 		if err != nil {
 			return fmt.Errorf("create %s: %w", outPath, err)
 		}

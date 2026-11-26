@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -118,7 +119,7 @@ var cmdAlertsAck = &cobra.Command{
 			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
 		}
 		id := args[0]
-		if err := doRequest("PUT", "/v1/alerts/"+id+"/acknowledge", nil, nil); err != nil {
+		if err := doRequest("PUT", "/v1/alerts/"+url.PathEscape(id)+"/acknowledge", nil, nil); err != nil {
 			return err
 		}
 		fmt.Printf("%s Alert %s acknowledged.\n", green("✓"), id)

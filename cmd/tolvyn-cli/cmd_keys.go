@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -133,7 +134,7 @@ var cmdKeysRevoke = &cobra.Command{
 		}
 
 		if flagJSON {
-			raw, _, err := doRequestRaw("DELETE", "/v1/api-keys/"+keyID, nil)
+			raw, _, err := doRequestRaw("DELETE", "/v1/api-keys/"+url.PathEscape(keyID), nil)
 			if err != nil {
 				return err
 			}
@@ -141,7 +142,7 @@ var cmdKeysRevoke = &cobra.Command{
 			return nil
 		}
 
-		if err := doRequest("DELETE", "/v1/api-keys/"+keyID, nil, nil); err != nil {
+		if err := doRequest("DELETE", "/v1/api-keys/"+url.PathEscape(keyID), nil, nil); err != nil {
 			return err
 		}
 		fmt.Println("Key revoked.")

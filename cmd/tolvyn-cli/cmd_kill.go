@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -183,7 +184,7 @@ var cmdKillUndo = &cobra.Command{
 		}
 		killID := args[0]
 
-		if err := doRequest("DELETE", "/v1/kill/"+killID, nil, nil); err != nil {
+		if err := doRequest("DELETE", "/v1/kill/"+url.PathEscape(killID), nil, nil); err != nil {
 			return err
 		}
 		fmt.Printf("%s Kill switch %s deactivated. AI requests are flowing again.\n",

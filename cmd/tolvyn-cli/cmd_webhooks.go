@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -155,7 +156,7 @@ var cmdWebhooksDelete = &cobra.Command{
 			fmt.Println("Cancelled.")
 			return nil
 		}
-		if err := doRequest("DELETE", "/v1/webhooks/"+id, nil, nil); err != nil {
+		if err := doRequest("DELETE", "/v1/webhooks/"+url.PathEscape(id), nil, nil); err != nil {
 			return err
 		}
 		fmt.Printf("%s Webhook %s deleted.\n", green("✓"), id)
@@ -177,7 +178,7 @@ var cmdWebhooksTest = &cobra.Command{
 			StatusCode int    `json:"status_code"`
 			Error      string `json:"error"`
 		}
-		if err := doRequest("POST", "/v1/webhooks/"+id+"/test", nil, &resp); err != nil {
+		if err := doRequest("POST", "/v1/webhooks/"+url.PathEscape(id)+"/test", nil, &resp); err != nil {
 			return err
 		}
 		if resp.Success {
@@ -199,7 +200,7 @@ var cmdWebhooksDeliveries = &cobra.Command{
 			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
 		}
 		id := args[0]
-		path := "/v1/webhooks/" + id + "/deliveries"
+		path := "/v1/webhooks/" + url.PathEscape(id) + "/deliveries"
 
 		if flagJSON {
 			raw, _, err := doRequestRaw("GET", path, nil)

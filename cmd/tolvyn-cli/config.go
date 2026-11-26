@@ -9,6 +9,7 @@ import (
 type Config struct {
 	APIURL             string `json:"api_url"`
 	Token              string `json:"token,omitempty"`
+	TokenAPIURL        string `json:"token_api_url,omitempty"` // the server that issued Token (1.3.2)
 	DefaultEnvironment string `json:"default_environment,omitempty"`
 }
 
@@ -35,14 +36,37 @@ func loadConfig() (*Config, error) {
 	return &cfg, nil
 }
 
+// saveConfig writes the config readable only by its owner, every time: a temporary file 0600 in the same directory,
+// renamed over the old one, and the directory set to 0700 (an existing config or directory kept its old mode before
+// 1.3.2, BE-667).
 func saveConfig(cfg *Config) error {
 	path := configPath()
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	tmp, err := os.CreateTemp(dir, ".config-*.json")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name()) //nolint:errcheck // gone after the rename
+	if err := tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }

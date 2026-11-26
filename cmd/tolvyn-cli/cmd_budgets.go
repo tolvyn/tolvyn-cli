@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -171,7 +172,7 @@ var cmdBudgetsDelete = &cobra.Command{
 			return nil
 		}
 
-		if err := doRequest("DELETE", "/v1/budgets/"+budgetID, nil, nil); err != nil {
+		if err := doRequest("DELETE", "/v1/budgets/"+url.PathEscape(budgetID), nil, nil); err != nil {
 			if strings.HasPrefix(err.Error(), "not found") {
 				return fmt.Errorf("Budget not found.")
 			}

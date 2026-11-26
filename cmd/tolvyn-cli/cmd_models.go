@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -20,7 +21,7 @@ var cmdModels = &cobra.Command{
 
 		path := "/v1/models"
 		if modelsProvider != "" {
-			path += "?provider=" + modelsProvider
+			path += "?" + url.Values{"provider": {modelsProvider}}.Encode()
 		}
 
 		if flagJSON {

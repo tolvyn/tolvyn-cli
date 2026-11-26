@@ -79,10 +79,11 @@ func main() {
 		cmd.Usage() //nolint:errcheck
 	})
 
-	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if flagNoColor || !isTTY() {
 			useColor = false
 		}
+		return checkBeforeRequest(cmd)
 	}
 
 	rootCmd.AddCommand(

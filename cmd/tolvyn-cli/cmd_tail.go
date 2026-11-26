@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -108,19 +110,38 @@ func printTailHeader() {
 }
 
 // streamTail opens the SSE connection and reads events until error or EOF.
+// tailIdle is how long tail waits with no byte from the API before it stops: the server sends a heartbeat every 15 s,
+// so a minute of silence is a stalled connection (BE-659).
+var tailIdle = 60 * time.Second
+
 func streamTail(path string) error {
-	req, err := http.NewRequest("GET", getAPIURL()+path, nil)
+	base := getAPIURL()
+	if err := validateAPIURL(base); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var idled atomic.Bool
+	idle := time.AfterFunc(tailIdle, func() { idled.Store(true); cancel() })
+	defer idle.Stop()
+	noData := fmt.Errorf("no data from the API for %s; tail stopped", tailIdle)
+	req, err := http.NewRequestWithContext(ctx, "GET", base+path, nil)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+getToken())
+	if tok := tokenFor(base); tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
+	}
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
 
 	// Use a client without a timeout for long-lived streaming connections.
-	streamClient := &http.Client{}
+	streamClient := &http.Client{CheckRedirect: noRedirect}
 	resp, err := streamClient.Do(req)
 	if err != nil {
+		if idled.Load() {
+			return noData
+		}
 		return fmt.Errorf("could not connect to API at %s. Run 'tolvyn status' to diagnose", getAPIURL())
 	}
 	defer resp.Body.Close()
@@ -133,7 +154,9 @@ func streamTail(path string) error {
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
+	idle.Reset(tailIdle)
 	for scanner.Scan() {
+		idle.Reset(tailIdle)
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "data: ") {
 			continue
@@ -194,6 +217,9 @@ func streamTail(path string) error {
 			event.TokensInput+event.TokensOutput,
 			event.CostUSD, event.LatencyMs,
 		)
+	}
+	if idled.Load() {
+		return noData
 	}
 	if err := scanner.Err(); err != nil && err != io.EOF {
 		return err

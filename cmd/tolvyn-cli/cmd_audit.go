@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -115,13 +116,13 @@ func parseDuration(s string) (time.Duration, error) {
 
 // buildQueryString joins a map of string params into a URL query string.
 func buildQueryString(params map[string]string) string {
-	var parts []string
+	q := url.Values{}
 	for k, v := range params {
 		if v != "" {
-			parts = append(parts, k+"="+v)
+			q.Set(k, v)
 		}
 	}
-	return strings.Join(parts, "&")
+	return q.Encode()
 }
 
 // truncate shortens s to max runes, appending … if trimmed.

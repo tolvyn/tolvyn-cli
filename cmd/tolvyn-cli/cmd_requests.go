@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -48,17 +49,17 @@ var cmdRequests = &cobra.Command{
 
 		var result struct {
 			Data []struct {
-				ID             string     `json:"id"`
-				Provider       string     `json:"provider"`
-				ModelID        string     `json:"model_id"`
-				TokensInput    int        `json:"tokens_input"`
-				TokensOutput   int        `json:"tokens_output"`
-				CostUSD        string     `json:"cost_usd"`
-				LatencyTotalMs *int       `json:"latency_total_ms"`
-				TeamID         *string    `json:"team_id"`
-				ServiceName    *string    `json:"service_name"`
-				StatusCode     int        `json:"status_code"`
-				CreatedAt      time.Time  `json:"created_at"`
+				ID             string    `json:"id"`
+				Provider       string    `json:"provider"`
+				ModelID        string    `json:"model_id"`
+				TokensInput    int       `json:"tokens_input"`
+				TokensOutput   int       `json:"tokens_output"`
+				CostUSD        string    `json:"cost_usd"`
+				LatencyTotalMs *int      `json:"latency_total_ms"`
+				TeamID         *string   `json:"team_id"`
+				ServiceName    *string   `json:"service_name"`
+				StatusCode     int       `json:"status_code"`
+				CreatedAt      time.Time `json:"created_at"`
 			} `json:"data"`
 			Total int `json:"total"`
 		}
@@ -117,7 +118,7 @@ var cmdRequestsShow = &cobra.Command{
 			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
 		}
 		id := args[0]
-		path := "/v1/usage/requests/" + id
+		path := "/v1/usage/requests/" + url.PathEscape(id)
 
 		raw, status, err := doRequestRaw("GET", path, nil)
 		if err != nil {

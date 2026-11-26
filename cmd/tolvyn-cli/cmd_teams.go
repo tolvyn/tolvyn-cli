@@ -29,10 +29,10 @@ var cmdTeamsList = &cobra.Command{
 		}
 
 		var teams []struct {
-			ID         string     `json:"id"`
-			Name       string     `json:"name"`
-			CostCenter *string    `json:"cost_center"`
-			CreatedAt  time.Time  `json:"created_at"`
+			ID         string    `json:"id"`
+			Name       string    `json:"name"`
+			CostCenter *string   `json:"cost_center"`
+			CreatedAt  time.Time `json:"created_at"`
 		}
 		if err := doRequest("GET", "/v1/teams", nil, &teams); err != nil {
 			return err

@@ -155,6 +155,8 @@ var cmdLedgerVerify = &cobra.Command{
 	},
 }
 
+var ledgerForce bool
+
 var cmdLedgerExport = &cobra.Command{
 	Use:   "export",
 	Short: "Export the ledger as CSV (full payload including hashes)",
@@ -188,7 +190,7 @@ var cmdLedgerExport = &cobra.Command{
 
 		var out io.Writer = os.Stdout
 		if ledgerOutput != "" {
-			f, err := os.Create(ledgerOutput)
+			f, err := createExportFile(ledgerOutput, ledgerForce)
 			if err != nil {
 				return fmt.Errorf("create %s: %w", ledgerOutput, err)
 			}
@@ -219,6 +221,7 @@ func init() {
 	cmdLedgerExport.Flags().StringVar(&ledgerFrom, "from", "", "Start date (RFC3339 or YYYY-MM-DD)")
 	cmdLedgerExport.Flags().StringVar(&ledgerTo, "to", "", "End date (RFC3339 or YYYY-MM-DD)")
 	cmdLedgerExport.Flags().StringVarP(&ledgerOutput, "output", "o", "", "Write to file (default: stdout)")
+	cmdLedgerExport.Flags().BoolVar(&ledgerForce, "force", false, "Overwrite the output file if it exists")
 
 	cmdLedger.AddCommand(cmdLedgerList, cmdLedgerVerify, cmdLedgerExport)
 }

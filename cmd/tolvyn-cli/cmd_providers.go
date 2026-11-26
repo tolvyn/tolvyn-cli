@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"syscall"
 	"time"
@@ -120,7 +121,7 @@ var cmdProvidersDelete = &cobra.Command{
 			fmt.Println("Cancelled.")
 			return nil
 		}
-		if err := doRequest("DELETE", "/v1/provider-keys/"+id, nil, nil); err != nil {
+		if err := doRequest("DELETE", "/v1/provider-keys/"+url.PathEscape(id), nil, nil); err != nil {
 			return err
 		}
 		fmt.Printf("%s Provider key %s deleted.\n", green("✓"), id)

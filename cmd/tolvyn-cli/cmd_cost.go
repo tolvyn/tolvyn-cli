@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -55,21 +56,21 @@ var cmdCost = &cobra.Command{
 		}
 
 		var summary struct {
-			TotalCostUSD    string `json:"total_cost_usd"`
-			TotalRequests   int64  `json:"total_requests"`
-			TotalTokensIn   int64  `json:"total_tokens_input"`
-			TotalTokensOut  int64  `json:"total_tokens_output"`
-			TopModels       []struct {
-				ModelID  string `json:"model_id"`
-				Requests int64  `json:"requests"`
-				CostUSD  string `json:"cost_usd"`
-				CostMicro int64 `json:"cost_microdollars"`
+			TotalCostUSD   string `json:"total_cost_usd"`
+			TotalRequests  int64  `json:"total_requests"`
+			TotalTokensIn  int64  `json:"total_tokens_input"`
+			TotalTokensOut int64  `json:"total_tokens_output"`
+			TopModels      []struct {
+				ModelID   string `json:"model_id"`
+				Requests  int64  `json:"requests"`
+				CostUSD   string `json:"cost_usd"`
+				CostMicro int64  `json:"cost_microdollars"`
 			} `json:"top_models"`
 			TopTeams []struct {
-				TeamID   string `json:"team_id"`
-				Requests int64  `json:"requests"`
-				CostUSD  string `json:"cost_usd"`
-				CostMicro int64 `json:"cost_microdollars"`
+				TeamID    string `json:"team_id"`
+				Requests  int64  `json:"requests"`
+				CostUSD   string `json:"cost_usd"`
+				CostMicro int64  `json:"cost_microdollars"`
 			} `json:"top_teams"`
 		}
 
@@ -403,21 +404,14 @@ func runCostByUser() error {
 }
 
 func buildQueryParams(from, to, team, model string) string {
-	var parts []string
-	if from != "" {
-		parts = append(parts, "from="+from)
+	q := url.Values{}
+	for _, kv := range [][2]string{{"from", from}, {"to", to}, {"team_id", team}, {"model", model}} {
+		if kv[1] != "" {
+			q.Set(kv[0], kv[1])
+		}
 	}
-	if to != "" {
-		parts = append(parts, "to="+to)
-	}
-	if team != "" {
-		parts = append(parts, "team_id="+team)
-	}
-	if model != "" {
-		parts = append(parts, "model="+model)
-	}
-	if len(parts) == 0 {
+	if len(q) == 0 {
 		return ""
 	}
-	return "?" + strings.Join(parts, "&")
+	return "?" + q.Encode()
 }

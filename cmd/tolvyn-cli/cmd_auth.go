@@ -113,6 +113,7 @@ func doLogin(apiURL, email, password string) error {
 	}
 	cfg.APIURL = apiURL
 	cfg.Token = resp.Token
+	cfg.TokenAPIURL = apiURL
 	if cfg.DefaultEnvironment == "" {
 		cfg.DefaultEnvironment = "production"
 	}

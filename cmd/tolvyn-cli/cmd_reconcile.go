@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -80,7 +81,9 @@ var cmdReconcileUpload = &cobra.Command{
 		data, _ := io.ReadAll(resp.Body)
 
 		if resp.StatusCode >= 300 {
-			var e struct{ Message string `json:"message"` }
+			var e struct {
+				Message string `json:"message"`
+			}
 			json.Unmarshal(data, &e) //nolint:errcheck
 			if e.Message != "" {
 				return fmt.Errorf("%s", e.Message)
@@ -271,7 +274,7 @@ var cmdReconcileDelete = &cobra.Command{
 			fmt.Println("Cancelled.")
 			return nil
 		}
-		if err := doRequest("DELETE", "/v1/reconciliation/"+runID, nil, nil); err != nil {
+		if err := doRequest("DELETE", "/v1/reconciliation/"+url.PathEscape(runID), nil, nil); err != nil {
 			return err
 		}
 		fmt.Printf("Run %s deleted.\n", runID)

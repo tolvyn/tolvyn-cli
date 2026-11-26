@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -105,7 +106,7 @@ var cmdSavingsDismiss = &cobra.Command{
 			return fmt.Errorf("not authenticated. Run 'tolvyn login'")
 		}
 		id := args[0]
-		if err := doRequest("POST", "/v1/savings/"+id+"/dismiss", nil, nil); err != nil {
+		if err := doRequest("POST", "/v1/savings/"+url.PathEscape(id)+"/dismiss", nil, nil); err != nil {
 			return err
 		}
 		fmt.Printf("%s Finding %s dismissed.\n", green("✓"), id)

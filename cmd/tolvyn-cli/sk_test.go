@@ -35,7 +35,11 @@ type rec struct {
 	reqs []seenReq
 }
 
-func (r *rec) all() []seenReq { r.mu.Lock(); defer r.mu.Unlock(); return append([]seenReq(nil), r.reqs...) }
+func (r *rec) all() []seenReq {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]seenReq(nil), r.reqs...)
+}
 
 func serve(t *testing.T, host string, answer http.HandlerFunc) (*httptest.Server, string, *rec) {
 	t.Helper()
@@ -125,7 +129,7 @@ func TestAConfigWrittenBefore132IsBoundToItsAPIURL(t *testing.T) {
 	_, aURL, a := serve(t, "127.0.0.1", jsonOK)
 	_, bURL, b := serve(t, "localhost", jsonOK)
 	d := home(t)
-	os.MkdirAll(filepath.Join(d, ".tolvyn"), 0o700) //nolint:errcheck
+	os.MkdirAll(filepath.Join(d, ".tolvyn"), 0o700)                                              //nolint:errcheck
 	os.WriteFile(configPath(), []byte(fmt.Sprintf(`{"api_url":%q,"token":"tok"}`, aURL)), 0o600) //nolint:errcheck
 	_ = doRequest("GET", "/v1/api-keys", nil, nil)
 	apiURLOverride = bURL
@@ -204,6 +208,22 @@ func TestNoIDGoesIntoAPathUnescaped(t *testing.T) {
 	}
 }
 
+// No query value is joined into a URL by hand ("name="+value): every query goes through url.Values (BE-657, and the
+// two sites the report did not list, usage export and models --provider).
+func TestNoQueryValueIsJoinedByHand(t *testing.T) {
+	re := regexp.MustCompile(`"[?&]?[a-z_]+="\s*\+`)
+	files, _ := filepath.Glob("*.go")
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		b, _ := os.ReadFile(f)
+		for _, m := range re.FindAllString(string(b), -1) {
+			t.Errorf("%s: %s", f, m)
+		}
+	}
+}
+
 func TestExportsArePrivateAndNeverOverwrite(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "x.csv")
 	f, err := createExportFile(p, false)
@@ -272,10 +292,10 @@ func TestTailStopsWhenNoDataArrives(t *testing.T) {
 
 func TestTheConfigIsPrivateAfterEverySave(t *testing.T) {
 	d := home(t)
-	os.MkdirAll(filepath.Join(d, ".tolvyn"), 0o755)                         //nolint:errcheck
+	os.MkdirAll(filepath.Join(d, ".tolvyn"), 0o755)                                  //nolint:errcheck
 	os.WriteFile(configPath(), []byte(`{"api_url":"https://api.tolvyn.io"}`), 0o644) //nolint:errcheck
-	os.Chmod(filepath.Join(d, ".tolvyn"), 0o755)                             //nolint:errcheck
-	os.Chmod(configPath(), 0o644)                                            //nolint:errcheck
+	os.Chmod(filepath.Join(d, ".tolvyn"), 0o755)                                     //nolint:errcheck
+	os.Chmod(configPath(), 0o644)                                                    //nolint:errcheck
 	save(t, Config{APIURL: "https://api.tolvyn.io", Token: "tok"})
 	if st, _ := os.Stat(configPath()); st.Mode().Perm() != 0o600 {
 		t.Errorf("config.json is %o", st.Mode().Perm())
@@ -288,7 +308,7 @@ func TestTheConfigIsPrivateAfterEverySave(t *testing.T) {
 func TestInstallScriptRefusesAMismatchedChecksum(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "tolvyn-linux-amd64")
-	os.WriteFile(bin, []byte("the binary"), 0o644) //nolint:errcheck
+	os.WriteFile(bin, []byte("the binary"), 0o644)                            //nolint:errcheck
 	sum := "4a5f3f3a2d7a4b2e8d3e0c9b5f2c1a7e6d5c4b3a29181716151413121110f0e0" // not its sum
 	good := strings.TrimSpace(run(t, dir, "sha256sum tolvyn-linux-amd64 | cut -d' ' -f1"))
 	verify := func(sums string) error {
