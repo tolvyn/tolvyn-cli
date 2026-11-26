@@ -10,6 +10,7 @@
 package main
 
 import (
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -17,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestALegacyConfigIsBoundOnFirstLoad(t *testing.T) {
@@ -213,6 +215,7 @@ func TestInstallScriptEndToEnd(t *testing.T) {
 		{"no SHA256SUMS", "v9.9.9", "", "no SHA256SUMS", false},
 		{"a mismatch", "v9.9.9", "bad", "Checksum mismatch", false},
 		{"a TOLVYN_VERSION that is not a version", "v9.9.9/../../../other/repo", "good", "TOLVYN_VERSION", false},
+		{"a TOLVYN_VERSION with a second line", "v9.9.9\n/../../other/repo", "good", "TOLVYN_VERSION", false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -243,5 +246,59 @@ func TestInstallScriptEndToEnd(t *testing.T) {
 				t.Errorf("curl was called: %s", logged)
 			}
 		})
+	}
+}
+
+// An export that fails part-way leaves nothing behind: no partial file, and with --force the old file untouched.
+func TestAFailedExportLeavesNothingBehind(t *testing.T) {
+	_, aURL, _ := serve(t, "127.0.0.1", func(w http.ResponseWriter, q *http.Request) {
+		conn, buf, _ := w.(http.Hijacker).Hijack()
+		buf.WriteString("HTTP/1.1 200 OK\r\nContent-Type: text/csv\r\nContent-Length: 100000\r\n\r\npartial,row\n") //nolint:errcheck
+		buf.Flush()                                                                                                 //nolint:errcheck
+		conn.Close()
+	})
+	h := home(t)
+	save(t, Config{APIURL: aURL, Token: "tok", TokenAPIURL: aURL})
+	old := filepath.Join(h, "old.csv")
+	os.WriteFile(old, []byte("old"), 0o600) //nolint:errcheck
+	if _, err := tolvyn(t, h, "usage", "export", "-o", old, "--force"); err == nil {
+		t.Errorf("a cut-off export succeeded")
+	}
+	if b, _ := os.ReadFile(old); string(b) != "old" {
+		t.Errorf("--force: the old file is now %q", b)
+	}
+	fresh := filepath.Join(h, "fresh.csv")
+	tolvyn(t, h, "usage", "export", "-o", fresh) //nolint:errcheck
+	if _, err := os.Lstat(fresh); err == nil {
+		t.Errorf("a cut-off export left a file behind")
+	}
+	if left, _ := filepath.Glob(filepath.Join(h, ".tolvyn-export-*")); len(left) != 0 {
+		t.Errorf("temporary files left: %v", left)
+	}
+}
+
+// A steady export is not cut off by the API client's total timeout (30 s): only by time without data.
+func TestASteadyExportIsNotCutOffByTheClientTimeout(t *testing.T) {
+	_, aURL, _ := serve(t, "127.0.0.1", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/csv")
+		for i := 0; i < 8; i++ {
+			w.Write([]byte("row\n")) //nolint:errcheck
+			w.(http.Flusher).Flush()
+			time.Sleep(100 * time.Millisecond)
+		}
+	})
+	home(t)
+	save(t, Config{APIURL: aURL, Token: "tok", TokenAPIURL: aURL})
+	old := httpClient.Timeout
+	httpClient.Timeout = 300 * time.Millisecond
+	defer func() { httpClient.Timeout = old }()
+	body, err := doRequestStream("/v1/usage/requests")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer body.Close()
+	b, err := io.ReadAll(body)
+	if err != nil || len(b) != 32 {
+		t.Errorf("read %d bytes, err=%v", len(b), err)
 	}
 }
