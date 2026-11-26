@@ -14,10 +14,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@PIN_ME # v4.2.2
+      - uses: actions/checkout@PIN_ME # v5.0.0
         with:
           persist-credentials: false
-      - uses: actions/setup-go@PIN_ME # v5.3.0
+      - uses: actions/setup-go@PIN_ME # v6.0.0
         with:
           go-version-file: go.mod
           cache: false
@@ -34,10 +34,10 @@ jobs:
       matrix:
         target: [linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64]
     steps:
-      - uses: actions/checkout@PIN_ME # v4.2.2
+      - uses: actions/checkout@PIN_ME # v5.0.0
         with:
           persist-credentials: false
-      - uses: actions/setup-go@PIN_ME # v5.3.0
+      - uses: actions/setup-go@PIN_ME # v6.0.0
         with:
           go-version-file: go.mod
           cache: false
@@ -50,7 +50,7 @@ jobs:
           mkdir -p dist
           CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags="-s -w" \
             -o "dist/tolvyn-${GOOS}-${GOARCH}${ext}" ./cmd/tolvyn-cli
-      - uses: actions/upload-artifact@PIN_ME # v4.6.0
+      - uses: actions/upload-artifact@PIN_ME # v5.0.0
         with:
           name: bin-${{ strategy.job-index }}
           path: dist/
@@ -63,7 +63,7 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/download-artifact@PIN_ME # v4.1.8
+      - uses: actions/download-artifact@PIN_ME # v5.0.0
         with:
           pattern: bin-*
           path: dist/
