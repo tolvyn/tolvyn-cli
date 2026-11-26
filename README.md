@@ -174,7 +174,7 @@ Two things to know about how the file is written:
 
 - **A config from before 1.3.1 is updated once.** It has a token but no `token_api_url`. The first command 1.3.1
   runs records the file's `api_url` there, and saves. A `tolvyn login` or `tolvyn logout` finishing at that same
-  moment can be overwritten: sign in again if that happens.
+  moment can be overwritten: if it was, run that `login` or `logout` again.
 - **Every save replaces the file.** The new config is written to a temporary file in `~/.tolvyn` and renamed over
   `config.json`. If `config.json` is a symlink, it becomes a regular file, and the symlink's target is left
   unchanged.

@@ -13,9 +13,11 @@
 - **Query values and ids are escaped** in every request.
 - **Exports are created readable only by you** and never overwrite a file unless you pass `--force`, which replaces the
   file (or a symlink at that path) rather than writing through it; the config file and its directory are made private
-  again on every save. `usage export` and `ledger export` stream to a temporary file renamed into place at the end,
-  so an export that fails part-way leaves nothing behind and an old file untouched; they stop after 60 seconds
-  without data, not after 30 seconds in total.
+  again on every save; `--force` replaces only a file or a symlink. `usage export` and `ledger export` stream to a
+  temporary file renamed into place at the end, so an export that fails part-way with an error leaves nothing behind
+  and an old file untouched. An export stopped with Ctrl-C leaves a `.tolvyn-export-*` file beside the output and,
+  without `--force`, an empty file at the output path; delete both. Exports stop after 60 seconds without data from
+  the API, not after 30 seconds in total.
 - **`tail` stops after a minute without data** from the API.
 - **`install.sh` checks the release's checksums** and, with cosign installed, its signature, and installs the binary
   `0755`, owned by root when it uses sudo. `TOLVYN_VERSION` must be a release version (`v1.3.1`);

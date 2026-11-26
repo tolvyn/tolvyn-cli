@@ -223,7 +223,8 @@ func doRequestStream(path string) (io.ReadCloser, error) {
 	return &idleBody{ReadCloser: resp.Body, idle: idle, ctx: ctx, stop: stop}, nil
 }
 
-// idleBody restarts the export's idle timer on every read.
+// idleBody runs the export's idle timer only while a read waits on the API, so a slow reader of the output does not
+// count as a quiet API.
 type idleBody struct {
 	io.ReadCloser
 	idle *time.Timer
@@ -234,6 +235,7 @@ type idleBody struct {
 func (b *idleBody) Read(p []byte) (int, error) {
 	b.idle.Reset(exportIdle)
 	n, err := b.ReadCloser.Read(p)
+	b.idle.Stop()
 	if err != nil && err != io.EOF && b.ctx.Err() != nil {
 		err = fmt.Errorf("the export stopped: no data from the API for %s", exportIdle)
 	}
