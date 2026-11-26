@@ -1,7 +1,7 @@
 # A GitHub release for each v* tag: the CLI's binaries under the names install.sh expects, SHA256SUMS, and a keyless
 # cosign signature of the sums (Sigstore, from this workflow's OIDC identity; install.sh checks both). The release job
-# waits for the founder's approval in the `release` environment. Every action is pinned to a full commit SHA
-# (~/tolvyn-builds/SK-scripts/pin-actions.sh resolves the tags in the comments before the first push).
+# waits for the founder's approval in the `release` environment. Every action is pinned to a full commit SHA, the
+# release tag it was resolved from in the comment beside it.
 name: release
 on:
   push:
@@ -19,6 +19,7 @@ jobs:
       - uses: actions/setup-go@PIN_ME # v5.3.0
         with:
           go-version-file: go.mod
+          cache: false
       - name: The tag is the CLI's version
         run: test "v$(sed -n 's/^const cliVersion = "\(.*\)"$/\1/p' cmd/tolvyn-cli/main.go)" = "$GITHUB_REF_NAME"
       - run: go vet ./...
@@ -38,6 +39,7 @@ jobs:
       - uses: actions/setup-go@PIN_ME # v5.3.0
         with:
           go-version-file: go.mod
+          cache: false
       - name: Build
         env:
           TARGET: ${{ matrix.target }}

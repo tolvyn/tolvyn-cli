@@ -135,7 +135,7 @@ func TestTheBuiltBinary(t *testing.T) {
 	csv := filepath.Join(h, "statement.csv")
 	os.WriteFile(csv, []byte("date,amount\n"), 0o600) //nolint:errcheck
 
-	own := [][]string{{"audit", "--format", "csv"}, {"ledger", "export"}, {"reconcile", "upload", csv}, {"usage", "export"}}
+	own := [][]string{{"audit", "--format", "csv"}, {"ledger", "export"}, {"reconcile", "upload", csv, "--month", "2026-10", "--provider", "openai"}, {"usage", "export"}}
 	for _, args := range own {
 		out, err := tolvyn(t, h, append(args, "--api-url", bURL)...)
 		if err == nil || !strings.Contains(out, "sign in there") {
@@ -156,7 +156,7 @@ func TestTheBuiltBinary(t *testing.T) {
 	} else if st, _ := os.Stat(out); st == nil || st.Size() != int64(len(big)) {
 		t.Errorf("usage export wrote %v bytes, want %d", st, len(big))
 	}
-	if o, err := tolvyn(t, h, "reconcile", "upload", csv); err == nil || !strings.Contains(o, "too large") {
+	if o, err := tolvyn(t, h, "reconcile", "upload", csv, "--month", "2026-10", "--provider", "openai"); err == nil || !strings.Contains(o, "too large") {
 		t.Errorf("reconcile upload read a response over the cap: err=%v", err)
 	}
 	if len(a.all()) == 0 {

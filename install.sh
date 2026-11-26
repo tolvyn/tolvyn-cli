@@ -2,7 +2,7 @@
 set -e
 
 REPO="tolvyn/tolvyn-cli"
-INSTALL_DIR="/usr/local/bin"
+INSTALL_DIR="${TOLVYN_INSTALL_DIR:-/usr/local/bin}"
 BINARY_NAME="tolvyn"
 
 # verify_checksum <file> <SHA256SUMS> <asset name>: the file's SHA-256 must be the one SHA256SUMS lists for the asset.
@@ -64,7 +64,8 @@ case "$OS" in
     ;;
 esac
 
-# TOLVYN_VERSION=v1.3.2 installs that release; otherwise the latest.
+# TOLVYN_VERSION=v1.3.2 installs that release; otherwise the latest. TOLVYN_INSTALL_DIR installs elsewhere than
+# /usr/local/bin.
 LATEST="${TOLVYN_VERSION:-}"
 if [ -z "$LATEST" ]; then
   LATEST=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
@@ -73,6 +74,10 @@ fi
 
 if [ -z "$LATEST" ]; then
   echo "Failed to fetch latest release."
+  exit 1
+fi
+if ! printf '%s\n' "$LATEST" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+  echo "Not a release version: $LATEST (TOLVYN_VERSION takes the form v1.3.2). Nothing was installed."
   exit 1
 fi
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -45,14 +46,13 @@ func runUsageExport(cmd *cobra.Command, args []string) error {
 		"format": "csv", "from": from, "to": to, "team_id": team, "service": service, "model": model,
 	})
 
-	data, status, err := doRequestRaw("GET", path, nil)
+	body, err := doRequestStream(path)
 	if err != nil {
 		return err
 	}
-	if status != 200 {
-		return fmt.Errorf("server returned %d: %s", status, data)
-	}
+	defer body.Close()
 
+	var out io.Writer = os.Stdout
 	if outPath != "" {
 		force, _ := cmd.Flags().GetBool("force")
 		f, err := createExportFile(outPath, force)
@@ -60,10 +60,8 @@ func runUsageExport(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("create %s: %w", outPath, err)
 		}
 		defer f.Close()
-		_, err = f.Write(data)
-		return err
+		out = f
 	}
-
-	_, err = os.Stdout.Write(data)
+	_, err = io.Copy(out, body)
 	return err
 }

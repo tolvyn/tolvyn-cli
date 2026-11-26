@@ -21,7 +21,7 @@ func noRedirect(req *http.Request, _ []*http.Request) error {
 
 var httpClient = &http.Client{Timeout: 30 * time.Second, CheckRedirect: noRedirect}
 
-// maxResponse caps a response read into memory; exports stream instead.
+// maxResponse caps a response read into memory; exports stream instead (doRequestStream).
 var maxResponse int64 = 16 << 20
 
 // apiURL returns the effective API URL (flag override or config).
@@ -62,19 +62,14 @@ func origin(raw string) string {
 	return u.Scheme + "://" + u.Host
 }
 
-// tokenFor returns the stored token if it was issued by base's server, else "". A config written before 1.3.2 has
-// no token_api_url: its token was issued by its api_url (D3, the founder, 26 Nov: a token goes only to the server that
-// issued it).
+// tokenFor returns the stored token if it was issued by base's server, else "": a token goes only to the server that
+// issued it (loadConfig binds a config written before 1.3.2 to its api_url).
 func tokenFor(base string) string {
 	cfg, err := loadConfig()
 	if err != nil || cfg.Token == "" {
 		return ""
 	}
-	issuer := cfg.TokenAPIURL
-	if issuer == "" {
-		issuer = cfg.APIURL
-	}
-	if o := origin(base); o != "" && o == origin(issuer) {
+	if o := origin(base); o != "" && o == origin(cfg.TokenAPIURL) {
 		return cfg.Token
 	}
 	return ""
@@ -88,19 +83,15 @@ func tokenElsewhere(base string) error {
 	if err != nil || cfg.Token == "" || tokenFor(base) != "" {
 		return nil
 	}
-	issuer := cfg.TokenAPIURL
-	if issuer == "" {
-		issuer = cfg.APIURL
-	}
 	return fmt.Errorf("this sign-in is for %s. To use %s, sign in there: tolvyn login --api-url %s",
-		origin(issuer), origin(base), origin(base))
+		origin(cfg.TokenAPIURL), origin(base), origin(base))
 }
 
 // checkBeforeRequest runs before every command that calls the API: the URL must pass the rule, and a sign-in for
 // another server is never sent (BE-612, BE-656).
 func checkBeforeRequest(cmd *cobra.Command) error {
 	switch cmd.Name() {
-	case "version", "login", "init", "logout", "help", "tolvyn", "completion":
+	case "version", "login", "init", "logout", "help", "tolvyn", cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
 		return nil
 	}
 	base := getAPIURL()
@@ -190,6 +181,32 @@ func doRequestAt(baseURL, method, path string, body any, v any) error {
 		}
 	}
 	return nil
+}
+
+// doRequestStream returns the response to a GET for the caller to stream (an export): not read into memory, so not
+// capped. A status other than 200 is an error, with the start of its body.
+func doRequestStream(path string) (io.ReadCloser, error) {
+	base := getAPIURL()
+	if err := validateAPIURL(base); err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("GET", base+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to API at %s. Run 'tolvyn status' to diagnose", base)
+	}
+	if tok := tokenFor(base); tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to API at %s: %w", base, err)
+	}
+	if resp.StatusCode != 200 {
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, b)
+	}
+	return resp.Body, nil
 }
 
 // doRequestRaw returns the raw response bytes (for --json flag).

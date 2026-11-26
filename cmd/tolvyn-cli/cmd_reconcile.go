@@ -78,7 +78,10 @@ var cmdReconcileUpload = &cobra.Command{
 			return fmt.Errorf("request failed: %w", err)
 		}
 		defer resp.Body.Close()
-		data, _ := io.ReadAll(resp.Body)
+		data, err := readCapped(resp.Body)
+		if err != nil {
+			return err
+		}
 
 		if resp.StatusCode >= 300 {
 			var e struct {

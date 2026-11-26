@@ -33,6 +33,13 @@ func loadConfig() (*Config, error) {
 	if cfg.APIURL == "" {
 		cfg.APIURL = defaultAPIURL
 	}
+	// A config written before 1.3.2 has a token but no token_api_url: its token was issued by its api_url. That is
+	// recorded on the first load, so a later change of api_url does not take the token with it (BE-656). A failed save
+	// still binds it for this run.
+	if cfg.Token != "" && cfg.TokenAPIURL == "" {
+		cfg.TokenAPIURL = cfg.APIURL
+		saveConfig(&cfg) //nolint:errcheck
+	}
 	return &cfg, nil
 }
 
