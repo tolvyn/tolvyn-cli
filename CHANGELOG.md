@@ -13,7 +13,8 @@
 - **Exports are created readable only by you** and never overwrite a file unless you pass `--force`; the config file and
   its directory are made private again on every save.
 - **`tail` stops after a minute without data** from the API.
-- **`install.sh` checks the release's checksums** and, with cosign installed, its signature.
+- **`install.sh` checks the release's checksums** and, with cosign installed, its signature, and installs the binary
+  `0755`, owned by root when it uses sudo.
 
 ## 1.3.1 — 2026-11-13
 
