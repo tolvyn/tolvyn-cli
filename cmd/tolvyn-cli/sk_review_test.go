@@ -425,3 +425,69 @@ func TestForceRefusesASpecialFile(t *testing.T) {
 		t.Errorf("the named pipe is now %v (err %v)", st, err)
 	}
 }
+
+// Item SK, 27 Nov: the release is signed by cosign v3 (cosign-installer v4), in Sigstore's new bundle format. With
+// cosign on PATH, install.sh checks the signature with cosign v3 or later and refuses an older cosign rather than
+// relying on it to read that format; without cosign, the checksum alone is checked.
+func TestInstallScriptChecksTheSignatureWithCosignV3OrLater(t *testing.T) {
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs(filepath.Join("..", "..", "install.sh"))
+	const asset = "tolvyn-linux-amd64"
+	cases := []struct {
+		name, cosignVersion, verify string
+		bundle                      bool
+		want                        string
+		ok                          bool
+	}{
+		{"cosign v3, the signature verifies", "v3.0.2", "ok", true, "Signature verified (cosign)", true},
+		{"cosign v4, the signature verifies", "v4.1.0", "ok", true, "Signature verified (cosign)", true},
+		{"cosign v2 is refused", "v2.4.1", "ok", true, "cosign v3 or later", false},
+		{"cosign v3, the signature does not verify", "v3.0.2", "bad", true, "does not verify", false},
+		{"cosign v3, no signature bundle in the release", "v3.0.2", "ok", false, "does not verify", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rel, dest := t.TempDir(), t.TempDir()
+			log := filepath.Join(t.TempDir(), "curl.log")
+			os.WriteFile(filepath.Join(rel, asset), []byte("the binary"), 0o644) //nolint:errcheck
+			sum, _ := exec.Command("sha256sum", filepath.Join(rel, asset)).Output()
+			os.WriteFile(filepath.Join(rel, "SHA256SUMS"), []byte(strings.Fields(string(sum))[0]+"  "+asset+"\n"), 0o644) //nolint:errcheck
+			if c.bundle {
+				os.WriteFile(filepath.Join(rel, "SHA256SUMS.sigstore.json"), []byte("{}"), 0o644) //nolint:errcheck
+			}
+			env := installEnv(t, rel, log)
+			bin := strings.TrimPrefix(env[0], "PATH=")
+			os.WriteFile(filepath.Join(bin, "cosign"), []byte(`#!/bin/sh
+case "$1" in
+  version) printf '  ______\ncosign: A tool for Container Signing\n\nGitVersion:    %s\nGitCommit:     0000000\n' "$FAKE_COSIGN_VERSION" ;;
+  verify-blob) echo "$@" >> "$FAKE_LOG.cosign"; [ "$FAKE_COSIGN_VERIFY" = ok ] ;;
+  *) exit 2 ;;
+esac
+`), 0o755) //nolint:errcheck
+			cmd := exec.Command(sh, script)
+			cmd.Env = append(env, "TOLVYN_VERSION=v9.9.9", "TOLVYN_INSTALL_DIR="+dest,
+				"FAKE_COSIGN_VERSION="+c.cosignVersion, "FAKE_COSIGN_VERIFY="+c.verify)
+			out, err := cmd.CombinedOutput()
+			if (err == nil) != c.ok || !strings.Contains(string(out), c.want) {
+				t.Errorf("err=%v, output:\n%s", err, out)
+			}
+			_, statErr := os.Stat(filepath.Join(dest, "tolvyn"))
+			if c.ok != (statErr == nil) {
+				t.Errorf("installed=%v, want %v", statErr == nil, c.ok)
+			}
+			if c.ok {
+				args, _ := os.ReadFile(log + ".cosign")
+				for _, want := range []string{"--bundle", "SHA256SUMS.sigstore.json",
+					"--certificate-identity https://github.com/tolvyn/tolvyn-cli/.github/workflows/release.yml@refs/tags/v9.9.9",
+					"--certificate-oidc-issuer https://token.actions.githubusercontent.com"} {
+					if !strings.Contains(string(args), want) {
+						t.Errorf("cosign verify-blob was called without %q: %s", want, args)
+					}
+				}
+			}
+		})
+	}
+}
