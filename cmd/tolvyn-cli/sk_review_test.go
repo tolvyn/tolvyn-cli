@@ -103,7 +103,9 @@ func tolvyn(t *testing.T, home string, args ...string) (string, error) {
 			return
 		}
 		builtBin = filepath.Join(dir, "tolvyn")
-		if out, err := exec.Command("go", "build", "-o", builtBin, ".").CombinedOutput(); err != nil {
+		// -modcacherw: the first caller's HOME may be a t.TempDir() (home), and on a fresh runner, with GOPATH and
+		// GOMODCACHE unset, Go puts its module cache there; read-only, it fails TempDir's cleanup (v1.3.1's release).
+		if out, err := exec.Command("go", "build", "-modcacherw", "-o", builtBin, ".").CombinedOutput(); err != nil {
 			builtErr = err
 			t.Logf("%s", out)
 		}
