@@ -29,6 +29,16 @@ jobs:
           cache: false
       - name: The tag is the CLI's version
         run: test "v$(sed -n 's/^const cliVersion = "\(.*\)"$/\1/p' cmd/tolvyn-cli/main.go)" = "$GITHUB_REF_NAME"
+      - name: The CHANGELOG's top heading is this tag's version, dated
+        shell: bash
+        run: |
+          top=$(grep -m1 '^## ' CHANGELOG.md || true)
+          re='^## v?([0-9]+\.[0-9]+\.[0-9]+) — ([0-9]{4}-[0-9]{2}-[0-9]{2})$'
+          if [[ "$top" =~ $re ]] && [[ "v${BASH_REMATCH[1]}" == "$GITHUB_REF_NAME" ]]; then
+            echo "CHANGELOG: $top"
+          else
+            echo "CHANGELOG.md's top heading must be '## <version> — YYYY-MM-DD' for $GITHUB_REF_NAME; it is '$top'"; exit 1
+          fi
       - run: go vet ./...
       - run: go test ./...
   build:
