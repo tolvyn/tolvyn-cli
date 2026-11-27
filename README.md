@@ -14,17 +14,18 @@ curl -fsSL https://releases.tolvyn.io/install.sh | sh
 ```
 
 The script checks the download against the release's `SHA256SUMS` and stops if they differ. With
-[cosign](https://github.com/sigstore/cosign) 3 or later installed it also checks that the release was built by this
+[cosign](https://github.com/sigstore/cosign) 3.1.3 or later installed it also checks that the release was built by this
 repository's release workflow, and installs nothing if that check fails. The release is signed with cosign 3, in
-Sigstore's bundle format. Without cosign, or with a cosign older than 3 (or one whose version it cannot read), it
-says `cosign 3 or later is needed to check the signature; checking the SHA256 checksum only` and installs on the
+Sigstore's bundle format. 3.1.3 is the first cosign with the fix for GHSA-fx35-mq7g-6g98, a signature-verification
+bypass. Without cosign, or with an older cosign (or one whose version it cannot read), it says
+`cosign 3.1.3 or later is needed to check the signature; checking the SHA256 checksum only` and installs on the
 checksum alone.
 
 - Set `TOLVYN_REQUIRE_SIGNATURE=1` to install only when the signature was verified. Then no cosign, an older one, or
   a failed check all install nothing.
 - `TOLVYN_VERSION=v1.3.1` installs a given release.
 
-To check a download by hand with cosign 3 or later, fetch the binary, `SHA256SUMS` and `SHA256SUMS.sigstore.json` from
+To check a download by hand with cosign 3.1.3 or later, fetch the binary, `SHA256SUMS` and `SHA256SUMS.sigstore.json` from
 the release, then run:
 
 ```bash

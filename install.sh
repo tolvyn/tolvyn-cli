@@ -29,6 +29,15 @@ version_ok() {
   printf '%s\n' "$1" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
 }
 
+# cosign_ok <cosign version>: 3.1.3 or later, read as vMAJOR.MINOR.PATCH and compared as numbers (a suffix such as
+# -rc.1 is ignored). 3.1.3 resolved GHSA-fx35-mq7g-6g98, "a verification bypass using an unexpected public key in a
+# legacy bundle" (cosign's release notes); the bundle checked here comes from the same release it vouches for.
+cosign_ok() {
+  set -- $(printf '%s\n' "$1" | sed -n 's/^v\{0,1\}\([0-9][0-9]*\)\.\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\1 \2 \3/p')
+  [ $# -eq 3 ] || return 1
+  [ "$1" -gt 3 ] || { [ "$1" -eq 3 ] && { [ "$2" -gt 1 ] || { [ "$2" -eq 1 ] && [ "$3" -ge 3 ]; }; }; }
+}
+
 # install_binary <file> <dir> <name>: the binary installed 0755, and owned by root when sudo is needed. A move would
 # keep the downloaded file's owner (the installing user) and mktemp's mode.
 install_binary() {
@@ -45,7 +54,7 @@ if [ -n "${TOLVYN_INSTALL_LIB:-}" ]; then
   return 0
 fi
 
-# TOLVYN_REQUIRE_SIGNATURE=1: install only if the release's signature was verified (cosign 3 or later on PATH). Any
+# TOLVYN_REQUIRE_SIGNATURE=1: install only if the release's signature was verified (cosign 3.1.3 or later on PATH). Any
 # other value but 0 is refused, so a mistyped "yes" cannot quietly mean "not required".
 REQUIRE_SIGNATURE="${TOLVYN_REQUIRE_SIGNATURE:-0}"
 case "$REQUIRE_SIGNATURE" in
@@ -111,18 +120,17 @@ if ! verify_checksum "$WORK/$ASSET" "$WORK/SHA256SUMS" "$ASSET"; then
 fi
 echo "Checksum verified (SHA256SUMS)."
 
-# The checksums must also carry this repository's release workflow's signature, checked with cosign 3 or later: the
-# release is signed by cosign v3 in Sigstore's bundle format. No cosign, an older one, or one whose version cannot be
-# read are all the same: the SHA256 checksum only (an old cosign is never asked to read the new format), unless
+# The checksums must also carry this repository's release workflow's signature, checked with cosign 3.1.3 or later
+# (cosign_ok): the release is signed by cosign v3 in Sigstore's bundle format. No cosign, an older one, or one whose
+# version cannot be read are all the same: the SHA256 checksum only (an older cosign is never asked to verify), unless
 # TOLVYN_REQUIRE_SIGNATURE=1.
-COSIGN_MAJOR=""
+COSIGN_VERSION=""
 if command -v cosign >/dev/null 2>&1; then
   COSIGN_VERSION=$(cosign version 2>&1 | sed -n '/^GitVersion:/{s/^GitVersion:[[:space:]]*//p;q;}')
-  COSIGN_MAJOR=$(printf '%s\n' "$COSIGN_VERSION" | sed -n 's/^v\{0,1\}\([0-9][0-9]*\)\..*/\1/p')
 fi
 SIGNATURE_VERIFIED=no
-if [ -z "$COSIGN_MAJOR" ] || [ "$COSIGN_MAJOR" -lt 3 ]; then
-  echo "cosign 3 or later is needed to check the signature; checking the SHA256 checksum only"
+if ! cosign_ok "$COSIGN_VERSION"; then
+  echo "cosign 3.1.3 or later is needed to check the signature; checking the SHA256 checksum only"
 else
   if ! curl -fsSL "$BASE/SHA256SUMS.sigstore.json" -o "$WORK/SHA256SUMS.sigstore.json" ||
      ! cosign verify-blob "$WORK/SHA256SUMS" --bundle "$WORK/SHA256SUMS.sigstore.json" \
@@ -135,7 +143,7 @@ else
   SIGNATURE_VERIFIED=yes
 fi
 if [ "$REQUIRE_SIGNATURE" = 1 ] && [ "$SIGNATURE_VERIFIED" != yes ]; then
-  echo "TOLVYN_REQUIRE_SIGNATURE=1, and the signature was not verified (cosign 3 or later is needed). Nothing was installed."
+  echo "TOLVYN_REQUIRE_SIGNATURE=1, and the signature was not verified (cosign 3.1.3 or later is needed). Nothing was installed."
   exit 1
 fi
 
