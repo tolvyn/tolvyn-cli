@@ -19,9 +19,10 @@
   without `--force`, an empty file at the output path; delete both. Exports stop after 60 seconds without data from
   the API, not after 30 seconds in total.
 - **`tail` stops after a minute without data** from the API.
-- **`install.sh` checks the release's checksums** and, with cosign v3 or later installed, its signature (signed with
-  cosign v3, in Sigstore's bundle format; an older cosign on `PATH` stops the install), and installs the binary
-  `0755`, owned by root when it uses sudo. `TOLVYN_VERSION` must be a release version (`v1.3.1`);
+- **`install.sh` checks the release's checksums** and, with cosign 3 or later installed, its signature (signed with
+  cosign 3, in Sigstore's bundle format). Without cosign, or with an older or unreadable one, it says so and checks
+  the checksum only. `TOLVYN_REQUIRE_SIGNATURE=1` installs only when the signature was verified. It installs the
+  binary `0755`, owned by root when it uses sudo. `TOLVYN_VERSION` must be a release version (`v1.3.1`);
   `TOLVYN_INSTALL_DIR` installs elsewhere than `/usr/local/bin`.
 
 

@@ -45,6 +45,14 @@ if [ -n "${TOLVYN_INSTALL_LIB:-}" ]; then
   return 0
 fi
 
+# TOLVYN_REQUIRE_SIGNATURE=1: install only if the release's signature was verified (cosign 3 or later on PATH). Any
+# other value but 0 is refused, so a mistyped "yes" cannot quietly mean "not required".
+REQUIRE_SIGNATURE="${TOLVYN_REQUIRE_SIGNATURE:-0}"
+case "$REQUIRE_SIGNATURE" in
+  0|1) ;;
+  *) echo "TOLVYN_REQUIRE_SIGNATURE must be 1 (or 0, or unset). Nothing was installed."; exit 1 ;;
+esac
+
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 
@@ -103,17 +111,19 @@ if ! verify_checksum "$WORK/$ASSET" "$WORK/SHA256SUMS" "$ASSET"; then
 fi
 echo "Checksum verified (SHA256SUMS)."
 
-# With cosign installed, the checksums must also carry this repository's release workflow's signature. The release is
-# signed by cosign v3 in Sigstore's bundle format, so the check needs cosign v3 or later; an older cosign is refused
-# rather than relied on to read that format.
+# The checksums must also carry this repository's release workflow's signature, checked with cosign 3 or later: the
+# release is signed by cosign v3 in Sigstore's bundle format. No cosign, an older one, or one whose version cannot be
+# read are all the same: the SHA256 checksum only (an old cosign is never asked to read the new format), unless
+# TOLVYN_REQUIRE_SIGNATURE=1.
+COSIGN_MAJOR=""
 if command -v cosign >/dev/null 2>&1; then
   COSIGN_VERSION=$(cosign version 2>&1 | sed -n '/^GitVersion:/{s/^GitVersion:[[:space:]]*//p;q;}')
   COSIGN_MAJOR=$(printf '%s\n' "$COSIGN_VERSION" | sed -n 's/^v\{0,1\}\([0-9][0-9]*\)\..*/\1/p')
-  if [ -z "$COSIGN_MAJOR" ] || [ "$COSIGN_MAJOR" -lt 3 ]; then
-    echo "This release's signature is checked with cosign v3 or later; the cosign on PATH is ${COSIGN_VERSION:-of unknown version}."
-    echo "Update cosign, or run this installer without cosign on PATH (the checksum is still checked). Nothing was installed."
-    exit 1
-  fi
+fi
+SIGNATURE_VERIFIED=no
+if [ -z "$COSIGN_MAJOR" ] || [ "$COSIGN_MAJOR" -lt 3 ]; then
+  echo "cosign 3 or later is needed to check the signature; checking the SHA256 checksum only"
+else
   if ! curl -fsSL "$BASE/SHA256SUMS.sigstore.json" -o "$WORK/SHA256SUMS.sigstore.json" ||
      ! cosign verify-blob "$WORK/SHA256SUMS" --bundle "$WORK/SHA256SUMS.sigstore.json" \
        --certificate-identity "https://github.com/$REPO/.github/workflows/release.yml@refs/tags/$LATEST" \
@@ -122,6 +132,11 @@ if command -v cosign >/dev/null 2>&1; then
     exit 1
   fi
   echo "Signature verified (cosign)."
+  SIGNATURE_VERIFIED=yes
+fi
+if [ "$REQUIRE_SIGNATURE" = 1 ] && [ "$SIGNATURE_VERIFIED" != yes ]; then
+  echo "TOLVYN_REQUIRE_SIGNATURE=1, and the signature was not verified (cosign 3 or later is needed). Nothing was installed."
+  exit 1
 fi
 
 install_binary "$WORK/$ASSET" "$INSTALL_DIR" "$BINARY_NAME"
