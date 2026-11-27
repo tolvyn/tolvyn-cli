@@ -8,11 +8,17 @@ on:
   push:
     tags: ['v*']
 permissions: {}
+# One run per tag at a time. Another run for the same tag waits instead of cancelling this one: a release is
+# never cancelled halfway.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
+      contents: read # to check out the tagged source
     steps:
       - uses: actions/checkout@PIN_ME # v7.0.1
         with:
@@ -26,10 +32,11 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
   build:
+    name: Build
     needs: test
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
+      contents: read # to check out the tagged source
     strategy:
       matrix:
         target: [linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64]
@@ -56,12 +63,13 @@ jobs:
           path: dist/
           if-no-files-found: error
   release:
+    name: Release
     needs: build
     runs-on: ubuntu-24.04
     environment: release
     permissions:
-      contents: write
-      id-token: write
+      contents: write # to create the GitHub release with its files
+      id-token: write # for cosign's keyless signature (Sigstore, from this workflow's OIDC identity)
     steps:
       - uses: actions/download-artifact@PIN_ME # v8.0.2
         with:
