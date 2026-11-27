@@ -23,7 +23,7 @@ checksum alone.
 
 - Set `TOLVYN_REQUIRE_SIGNATURE=1` to install only when the signature was verified. Then no cosign, an older one, or
   a failed check all install nothing.
-- `TOLVYN_VERSION=v1.3.1` installs a given release.
+- `TOLVYN_VERSION=v1.3.2` installs a given release.
 
 To check a download by hand with cosign 3.1.3 or later, fetch the binary, `SHA256SUMS` and `SHA256SUMS.sigstore.json` from
 the release, then run:
@@ -31,7 +31,7 @@ the release, then run:
 ```bash
 sha256sum -c --ignore-missing SHA256SUMS
 cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json \
-  --certificate-identity "https://github.com/tolvyn/tolvyn-cli/.github/workflows/release.yml@refs/tags/v1.3.1" \
+  --certificate-identity "https://github.com/tolvyn/tolvyn-cli/.github/workflows/release.yml@refs/tags/v1.3.2" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -182,7 +182,7 @@ Config file lives at `~/.tolvyn/config.json` (created on first `tolvyn init` / `
 
 Two things to know about how the file is written:
 
-- **A config from before 1.3.1 is updated once.** It has a token but no `token_api_url`. The first command 1.3.1
+- **A config from before 1.3.2 is updated once.** It has a token but no `token_api_url`. The first command 1.3.2
   runs records the file's `api_url` there, and saves. A `tolvyn login` or `tolvyn logout` finishing at that same
   moment can be overwritten: if it was, run that `login` or `logout` again.
 - **Every save replaces the file.** The new config is written to a temporary file in `~/.tolvyn` and renamed over

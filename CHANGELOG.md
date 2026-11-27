@@ -1,13 +1,15 @@
 # Changelog
 
-## 1.3.1 — 2026-11-27
+## 1.3.2 — 2026-11-27
+
+1.3.1 was tagged but not released (a release-time test failed in CI); 1.3.2 contains the same changes and the test fix.
 
 ### Security
 
 - **The API URL must start with `https://`** (`http://` only for `localhost`, `127.0.0.1` and `[::1]`), from the config,
   `--api-url` and `tolvyn login`.
 - **A sign-in is sent only to the server that issued it.** `--api-url` naming another server says so and sends nothing;
-  sign in there instead. A config written before 1.3.1 counts as issued by the `api_url` it has when 1.3.1 first
+  sign in there instead. A config written before 1.3.2 counts as issued by the `api_url` it has when 1.3.2 first
   reads it, and records that.
 - **Redirects are not followed.**
 - **Query values and ids are escaped** in every request.
@@ -22,7 +24,7 @@
 - **`install.sh` checks the release's checksums** and, with cosign 3.1.3 or later installed, its signature (signed with
   cosign 3, in Sigstore's bundle format; 3.1.3 fixed the verification bypass GHSA-fx35-mq7g-6g98). Without cosign,
   or with an older or unreadable one, it says so and checks the checksum only. `TOLVYN_REQUIRE_SIGNATURE=1` installs only when the signature was verified. It installs the
-  binary `0755`, owned by root when it uses sudo. `TOLVYN_VERSION` must be a release version (`v1.3.1`);
+  binary `0755`, owned by root when it uses sudo. `TOLVYN_VERSION` must be a release version (`v1.3.2`);
   `TOLVYN_INSTALL_DIR` installs elsewhere than `/usr/local/bin`.
 
 
