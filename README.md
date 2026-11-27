@@ -14,9 +14,12 @@ curl -fsSL https://releases.tolvyn.io/install.sh | sh
 ```
 
 The script checks the download against the release's `SHA256SUMS` and stops if they differ. With
-[cosign](https://github.com/sigstore/cosign) installed it also checks that the release was built by this repository's
-release workflow. `TOLVYN_VERSION=v1.3.1` installs a given release. To check a download by hand, fetch the binary,
-`SHA256SUMS` and `SHA256SUMS.sigstore.json` from the release, then run:
+[cosign](https://github.com/sigstore/cosign) v3 or later installed it also checks that the release was built by this
+repository's release workflow. The release is signed with cosign v3, in Sigstore's bundle format, and the installer
+does not rely on an older cosign to read it: with cosign v2 or earlier on `PATH` it stops, and says so. Update
+cosign, or run it without cosign on `PATH`; the checksum is still checked. `TOLVYN_VERSION=v1.3.1` installs a given
+release. To check a download by hand with cosign v3 or later, fetch the binary, `SHA256SUMS` and
+`SHA256SUMS.sigstore.json` from the release, then run:
 
 ```bash
 sha256sum -c --ignore-missing SHA256SUMS

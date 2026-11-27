@@ -445,6 +445,7 @@ func TestInstallScriptChecksTheSignatureWithCosignV3OrLater(t *testing.T) {
 		{"cosign v3, the signature verifies", "v3.0.2", "ok", true, "Signature verified (cosign)", true},
 		{"cosign v4, the signature verifies", "v4.1.0", "ok", true, "Signature verified (cosign)", true},
 		{"cosign v2 is refused", "v2.4.1", "ok", true, "cosign v3 or later", false},
+		{"a cosign whose version cannot be read is refused", "devel", "ok", true, "cosign v3 or later", false},
 		{"cosign v3, the signature does not verify", "v3.0.2", "bad", true, "does not verify", false},
 		{"cosign v3, no signature bundle in the release", "v3.0.2", "ok", false, "does not verify", false},
 	}
