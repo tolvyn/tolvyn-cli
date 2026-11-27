@@ -427,19 +427,21 @@ func TestForceRefusesASpecialFile(t *testing.T) {
 }
 
 // Item SK, 27 Nov: the release is signed by cosign v3 (cosign-installer v4), in Sigstore's new bundle format.
-//   - cosign v3 or later on PATH: the signature is verified, and a failed verify installs nothing.
-//   - no cosign, a cosign older than 3, or one whose version cannot be read: the same, a message, and the SHA256
-//     checksum only (an old cosign is never asked to read the new format).
+//   - cosign 3.1.3 or later on PATH: the signature is verified, and a failed verify installs nothing. 3.1.3 resolved
+//     GHSA-fx35-mq7g-6g98, "a verification bypass using an unexpected public key in a legacy bundle" (cosign's
+//     release notes), and the bundle install.sh checks comes from the same release it vouches for.
+//   - no cosign, an older one, or one whose version cannot be read: the same, a message, and the SHA256 checksum only.
+//     The version is compared as numbers: 3.1.10 is later than 3.1.3.
 //   - TOLVYN_REQUIRE_SIGNATURE=1: nothing is installed unless the signature was verified. Any other value but 0 or
 //     unset is refused, so a mistyped "yes" cannot silently mean "not required".
-func TestInstallScriptChecksTheSignatureWithCosignV3OrLater(t *testing.T) {
+func TestInstallScriptChecksTheSignatureWithCosign313OrLater(t *testing.T) {
 	sh, err := exec.LookPath("sh")
 	if err != nil {
 		t.Fatal(err)
 	}
 	script, _ := filepath.Abs(filepath.Join("..", "..", "install.sh"))
 	const asset = "tolvyn-linux-amd64"
-	const checksumOnly = "cosign 3 or later is needed to check the signature; checking the SHA256 checksum only"
+	const checksumOnly = "cosign 3.1.3 or later is needed to check the signature; checking the SHA256 checksum only"
 	const verified = "Signature verified (cosign)"
 	cases := []struct {
 		name, cosign, verify string // cosign: "" means none on PATH
@@ -448,18 +450,24 @@ func TestInstallScriptChecksTheSignatureWithCosignV3OrLater(t *testing.T) {
 		want                 string
 		ok, verifyCalled     bool
 	}{
-		{"cosign v3, the signature verifies", "v3.0.2", "ok", true, "", verified, true, true},
+		{"cosign 3.1.3, the signature verifies", "v3.1.3", "ok", true, "", verified, true, true},
+		{"cosign 3.1.10 is later than 3.1.3", "v3.1.10", "ok", true, "", verified, true, true},
+		{"cosign 3.2.0 is later than 3.1.3", "v3.2.0", "ok", true, "", verified, true, true},
+		{"cosign 4.0.0 is later than 3.1.3", "v4.0.0", "ok", true, "", verified, true, true},
 		{"cosign v4, the signature verifies", "v4.1.0", "ok", true, "", verified, true, true},
-		{"cosign v3, the signature does not verify", "v3.0.2", "bad", true, "", "does not verify", false, true},
-		{"cosign v3, no signature bundle in the release", "v3.0.2", "ok", false, "", "does not verify", false, false},
+		{"cosign 3.1.5, the signature does not verify", "v3.1.5", "bad", true, "", "does not verify", false, true},
+		{"cosign 3.1.5, no signature bundle in the release", "v3.1.5", "ok", false, "", "does not verify", false, false},
 		{"no cosign: the checksum only", "", "ok", true, "", checksumOnly, true, false},
+		{"cosign 3.1.2, as if none: the checksum only", "v3.1.2", "ok", true, "", checksumOnly, true, false},
+		{"cosign 3.0.6, as if none: the checksum only", "v3.0.6", "ok", true, "", checksumOnly, true, false},
 		{"cosign v2, as if none: the checksum only", "v2.4.1", "ok", true, "", checksumOnly, true, false},
 		{"a cosign whose version cannot be read, as if none", "devel", "ok", true, "", checksumOnly, true, false},
-		{"required, cosign v3 verifies", "v3.0.2", "ok", true, "1", verified, true, true},
+		{"required, cosign 3.1.3 verifies", "v3.1.3", "ok", true, "1", verified, true, true},
 		{"required, no cosign: refused", "", "ok", true, "1", "TOLVYN_REQUIRE_SIGNATURE=1", false, false},
+		{"required, cosign 3.1.2: refused", "v3.1.2", "ok", true, "1", "TOLVYN_REQUIRE_SIGNATURE=1", false, false},
 		{"required, cosign v2: refused", "v2.4.1", "ok", true, "1", "TOLVYN_REQUIRE_SIGNATURE=1", false, false},
 		{"required, an unreadable cosign: refused", "devel", "ok", true, "1", "TOLVYN_REQUIRE_SIGNATURE=1", false, false},
-		{"required, the signature does not verify: refused", "v3.0.2", "bad", true, "1", "does not verify", false, true},
+		{"required, the signature does not verify: refused", "v3.1.5", "bad", true, "1", "does not verify", false, true},
 		{"required set to 0: not required", "", "ok", true, "0", checksumOnly, true, false},
 		{"required set to anything else: refused", "v3.0.2", "ok", true, "yes", "TOLVYN_REQUIRE_SIGNATURE must be 1", false, false},
 	}
