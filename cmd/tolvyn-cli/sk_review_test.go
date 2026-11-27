@@ -426,9 +426,12 @@ func TestForceRefusesASpecialFile(t *testing.T) {
 	}
 }
 
-// Item SK, 27 Nov: the release is signed by cosign v3 (cosign-installer v4), in Sigstore's new bundle format. With
-// cosign on PATH, install.sh checks the signature with cosign v3 or later and refuses an older cosign rather than
-// relying on it to read that format; without cosign, the checksum alone is checked.
+// Item SK, 27 Nov: the release is signed by cosign v3 (cosign-installer v4), in Sigstore's new bundle format.
+//   - cosign v3 or later on PATH: the signature is verified, and a failed verify installs nothing.
+//   - no cosign, a cosign older than 3, or one whose version cannot be read: the same, a message, and the SHA256
+//     checksum only (an old cosign is never asked to read the new format).
+//   - TOLVYN_REQUIRE_SIGNATURE=1: nothing is installed unless the signature was verified. Any other value but 0 or
+//     unset is refused, so a mistyped "yes" cannot silently mean "not required".
 func TestInstallScriptChecksTheSignatureWithCosignV3OrLater(t *testing.T) {
 	sh, err := exec.LookPath("sh")
 	if err != nil {
@@ -436,18 +439,29 @@ func TestInstallScriptChecksTheSignatureWithCosignV3OrLater(t *testing.T) {
 	}
 	script, _ := filepath.Abs(filepath.Join("..", "..", "install.sh"))
 	const asset = "tolvyn-linux-amd64"
+	const checksumOnly = "cosign 3 or later is needed to check the signature; checking the SHA256 checksum only"
+	const verified = "Signature verified (cosign)"
 	cases := []struct {
-		name, cosignVersion, verify string
-		bundle                      bool
-		want                        string
-		ok                          bool
+		name, cosign, verify string // cosign: "" means none on PATH
+		bundle               bool
+		require              string
+		want                 string
+		ok, verifyCalled     bool
 	}{
-		{"cosign v3, the signature verifies", "v3.0.2", "ok", true, "Signature verified (cosign)", true},
-		{"cosign v4, the signature verifies", "v4.1.0", "ok", true, "Signature verified (cosign)", true},
-		{"cosign v2 is refused", "v2.4.1", "ok", true, "cosign v3 or later", false},
-		{"a cosign whose version cannot be read is refused", "devel", "ok", true, "cosign v3 or later", false},
-		{"cosign v3, the signature does not verify", "v3.0.2", "bad", true, "does not verify", false},
-		{"cosign v3, no signature bundle in the release", "v3.0.2", "ok", false, "does not verify", false},
+		{"cosign v3, the signature verifies", "v3.0.2", "ok", true, "", verified, true, true},
+		{"cosign v4, the signature verifies", "v4.1.0", "ok", true, "", verified, true, true},
+		{"cosign v3, the signature does not verify", "v3.0.2", "bad", true, "", "does not verify", false, true},
+		{"cosign v3, no signature bundle in the release", "v3.0.2", "ok", false, "", "does not verify", false, false},
+		{"no cosign: the checksum only", "", "ok", true, "", checksumOnly, true, false},
+		{"cosign v2, as if none: the checksum only", "v2.4.1", "ok", true, "", checksumOnly, true, false},
+		{"a cosign whose version cannot be read, as if none", "devel", "ok", true, "", checksumOnly, true, false},
+		{"required, cosign v3 verifies", "v3.0.2", "ok", true, "1", verified, true, true},
+		{"required, no cosign: refused", "", "ok", true, "1", "TOLVYN_REQUIRE_SIGNATURE=1", false, false},
+		{"required, cosign v2: refused", "v2.4.1", "ok", true, "1", "TOLVYN_REQUIRE_SIGNATURE=1", false, false},
+		{"required, an unreadable cosign: refused", "devel", "ok", true, "1", "TOLVYN_REQUIRE_SIGNATURE=1", false, false},
+		{"required, the signature does not verify: refused", "v3.0.2", "bad", true, "1", "does not verify", false, true},
+		{"required set to 0: not required", "", "ok", true, "0", checksumOnly, true, false},
+		{"required set to anything else: refused", "v3.0.2", "ok", true, "yes", "TOLVYN_REQUIRE_SIGNATURE must be 1", false, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -460,17 +474,22 @@ func TestInstallScriptChecksTheSignatureWithCosignV3OrLater(t *testing.T) {
 				os.WriteFile(filepath.Join(rel, "SHA256SUMS.sigstore.json"), []byte("{}"), 0o644) //nolint:errcheck
 			}
 			env := installEnv(t, rel, log)
-			bin := strings.TrimPrefix(env[0], "PATH=")
-			os.WriteFile(filepath.Join(bin, "cosign"), []byte(`#!/bin/sh
+			if c.cosign != "" {
+				bin := strings.TrimPrefix(env[0], "PATH=")
+				os.WriteFile(filepath.Join(bin, "cosign"), []byte(`#!/bin/sh
 case "$1" in
   version) printf '  ______\ncosign: A tool for Container Signing\n\nGitVersion:    %s\nGitCommit:     0000000\n' "$FAKE_COSIGN_VERSION" ;;
   verify-blob) echo "$@" >> "$FAKE_LOG.cosign"; [ "$FAKE_COSIGN_VERIFY" = ok ] ;;
   *) exit 2 ;;
 esac
 `), 0o755) //nolint:errcheck
+			}
 			cmd := exec.Command(sh, script)
 			cmd.Env = append(env, "TOLVYN_VERSION=v9.9.9", "TOLVYN_INSTALL_DIR="+dest,
-				"FAKE_COSIGN_VERSION="+c.cosignVersion, "FAKE_COSIGN_VERIFY="+c.verify)
+				"FAKE_COSIGN_VERSION="+c.cosign, "FAKE_COSIGN_VERIFY="+c.verify)
+			if c.require != "" {
+				cmd.Env = append(cmd.Env, "TOLVYN_REQUIRE_SIGNATURE="+c.require)
+			}
 			out, err := cmd.CombinedOutput()
 			if (err == nil) != c.ok || !strings.Contains(string(out), c.want) {
 				t.Errorf("err=%v, output:\n%s", err, out)
@@ -479,8 +498,11 @@ esac
 			if c.ok != (statErr == nil) {
 				t.Errorf("installed=%v, want %v", statErr == nil, c.ok)
 			}
-			if c.ok {
-				args, _ := os.ReadFile(log + ".cosign")
+			args, _ := os.ReadFile(log + ".cosign")
+			if c.verifyCalled != (len(args) > 0) {
+				t.Errorf("cosign verify-blob called=%v, want %v", len(args) > 0, c.verifyCalled)
+			}
+			if c.verifyCalled {
 				for _, want := range []string{"--bundle", "SHA256SUMS.sigstore.json",
 					"--certificate-identity https://github.com/tolvyn/tolvyn-cli/.github/workflows/release.yml@refs/tags/v9.9.9",
 					"--certificate-oidc-issuer https://token.actions.githubusercontent.com"} {
